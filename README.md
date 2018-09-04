@@ -1,5 +1,7 @@
 # _4️⃣2️⃣_
 
+Репозиторий фронтенда: https://github.com/frontend-park-mail-ru/2018_2_42
+
 ## Команда
 1️⃣ [Дикарев Андрей](https://github.com/DikarevAndrey)
 <br>
