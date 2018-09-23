@@ -24,8 +24,8 @@ create table if not exists "regular_login_information" (
 create table if not exists "game_statistics" (
   "id"           serial4 primary key,
   "user_id"      integer not null references "user" ("id") unique,
-  "games_played" int not null, -- количество начатых игр
-  "wins"         int not null -- количество доведённых до победного конца
+  "games_played" integer not null, -- количество начатых игр
+  "wins"         integer not null -- количество доведённых до победного конца
 );
 
 -- текущая принадлежность к игре.
