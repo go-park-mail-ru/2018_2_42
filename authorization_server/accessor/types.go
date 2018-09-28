@@ -1,7 +1,13 @@
 package accessor
 
+import (
+	"database/sql"
+)
+
+type UserId int32
+
 type User struct {
-	Id            int32  // первичный ключ, через который связаны остальные поля.
+	Id            UserId // первичный ключ, через который связаны остальные поля.
 	Login         string // видимое другим игрокам имя пользователя
 	AvatarAddress string // адрес относительно корня сайта: '/media/name-src32.ext'
 	LastLoginTime int64  // timestamp
@@ -11,14 +17,14 @@ type User struct {
 }
 
 type RegularLoginInformation struct {
-	Id           int32
-	UserId       int32
+	// Id           int32
+	UserId       UserId
 	PasswordHash string // по алгоритму sha3
 }
 
 type GameStatistics struct {
-	Id          int32
-	UserId      int32
+	// Id          int32
+	UserId      UserId
 	GamesPlayed int32 // количество начатых игр
 	Wins        int   // количество доведённых до победного конца
 }
@@ -26,7 +32,10 @@ type GameStatistics struct {
 // текущая принадлежность к игре.
 // допущение - только одна игра в один момент времени.
 type CurrentLogin struct {
-	Id                 int32
-	UserId             int32
-	AuthorizationToken string // токен авторицации, ставящийся как cookie пользователю
+	// Id int32
+	UserId UserId
+	// токен авторицации, ставящийся как cookie пользователю
+	AuthorizationToken sql.NullString
+	// csrf token, проверяемый при приёме html форм при загрузке пользовательских данных.
+	CSRFToken sql.NullString
 }
