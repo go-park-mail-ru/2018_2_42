@@ -39,3 +39,11 @@ type CurrentLogin struct {
 	// csrf token, проверяемый при приёме html форм при загрузке пользовательских данных.
 	CSRFToken sql.NullString
 }
+
+// Публичная информация пользователя
+type PublicUserInformation struct {
+	Login         string `json:"login"`
+	AvatarAddress string `json:"avatarAddress"`
+	GamesPlayed   int    `json:"gamesPlayed"`
+	Wins          int    `json:"wins"`
+}

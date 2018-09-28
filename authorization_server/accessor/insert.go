@@ -9,7 +9,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-
 type DB struct {
 	*sql.DB // Резерв соединений к базе данных.
 }
@@ -77,11 +76,10 @@ commit;
 // https://postgrespro.ru/docs/postgrespro/10/sql-prepare
 var preparedStatements = map[string]*sql.Stmt{}
 
-
 // По аналогии с regexp.MustCompile используется при запуске,
 // проверяет успешность подготовки SQL для дальнейшего использования.
-func must(stmt *sql.Stmt, err error)(*sql.Stmt){
-	if err != nil{
+func must(stmt *sql.Stmt, err error) (*sql.Stmt) {
+	if err != nil {
 		panic(errors.New("error when compiling SQL expression: " + err.Error()))
 	}
 	return stmt
@@ -104,14 +102,13 @@ insert into "user"(
 }
 
 // Такие функции скрывают нетипизированность prepared statement.
-func (db *DB)InsertIntoUser(login string, avatarAddress string, disposable bool) (id UserId, err error) {
+func (db *DB) InsertIntoUser(login string, avatarAddress string, disposable bool) (id UserId, err error) {
 	err = preparedStatements["insertIntoUser"].QueryRow(login, avatarAddress, disposable).Scan(&id)
 	if err != nil {
 		err = errors.New("Error on exec 'insertIntoUser' statment: " + err.Error())
 	}
 	return id, err
 }
-
 
 func init() {
 	preparedStatements["insertIntoRegularLoginInformation"] = must(Db.Prepare(`
@@ -124,7 +121,7 @@ insert into "regular_login_information"(
 	`))
 }
 
-func (db *DB)InsertIntoRegularLoginInformation(userId UserId, passwordHash string) (err error) {
+func (db *DB) InsertIntoRegularLoginInformation(userId UserId, passwordHash string) (err error) {
 	_, err = preparedStatements["insertIntoRegularLoginInformation"].Exec(userId, passwordHash)
 	if err != nil {
 		err = errors.New("Error on exec 'InsertIntoRegularLoginInformation' statment: " + err.Error())
@@ -132,7 +129,7 @@ func (db *DB)InsertIntoRegularLoginInformation(userId UserId, passwordHash strin
 	return err
 }
 
-func init()  {
+func init() {
 	preparedStatements["insertIntoGameStatistics"] = must(Db.Prepare(`
 insert into "game_statistics" (
 	"user_id",
@@ -144,7 +141,7 @@ insert into "game_statistics" (
 	`))
 }
 
-func (db *DB)InsertIntoGameStatistics(userId UserId, gamesPlayed int32, wins int32) (err error) {
+func (db *DB) InsertIntoGameStatistics(userId UserId, gamesPlayed int32, wins int32) (err error) {
 	_, err = preparedStatements["insertIntoGameStatistics"].Exec(userId, gamesPlayed, wins)
 	if err != nil {
 		err = errors.New("Error on exec 'insertIntoGameStatistics' statment: " + err.Error())
@@ -152,7 +149,7 @@ func (db *DB)InsertIntoGameStatistics(userId UserId, gamesPlayed int32, wins int
 	return err
 }
 
-func init()  {
+func init() {
 	preparedStatements["insertIntoCurrentLogin"] = must(Db.Prepare(`
 insert into "current_login" (
 	"user_id",
@@ -163,10 +160,56 @@ insert into "current_login" (
     `))
 }
 
-func (db *DB)InsertIntoCurrentLogin(userId UserId, authorizationToken string) (err error) {
+func (db *DB) InsertIntoCurrentLogin(userId UserId, authorizationToken string) (err error) {
 	_, err = preparedStatements["insertIntoCurrentLogin"].Exec(userId, authorizationToken)
 	if err != nil {
 		err = errors.New("Error on exec 'InsertIntoGameStatistics' statment: " + err.Error())
 	}
 	return err
+}
+
+func init() {
+	preparedStatements["selectLeaderBoard"] = must(Db.Prepare(`
+select
+    "user"."login",
+    "user"."avatar_address",
+    "game_statistics"."games_played" as "gamesPlayed",
+    "game_statistics"."wins"
+from 
+	"user",
+	"game_statistics"
+where 
+	"user"."id" = "game_statistics".user_id
+order by 
+	"game_statistics"."wins" desc,
+	"gamesPlayed" asc
+limit
+    $1
+offset
+    $2
+;   `))
+}
+
+func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation []PublicUserInformation, err error) {
+	rows, err := preparedStatements["selectLeaderBoard"].Query(limit, offset)
+	if err != nil {
+		err = errors.New("Error on exec 'SelectLeaderBoard' statment: " + err.Error())
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		userInformation := PublicUserInformation{}
+		err = rows.Scan(
+			&userInformation.Login,
+			&userInformation.AvatarAddress,
+			&userInformation.GamesPlayed,
+			&userInformation.Wins,
+		)
+		if err != nil {
+			err = errors.New("Error on exec 'SelectLeaderBoard' statment: " + err.Error())
+			return
+		}
+		usersInformation = append(usersInformation, userInformation)
+	}
+	return
 }

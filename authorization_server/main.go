@@ -1,3 +1,5 @@
+// TODO: описать в swagger, https://github.com/swaggo/swag
+
 package main
 
 import (
@@ -8,6 +10,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -140,8 +143,71 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func LeaderBoard(w http.ResponseWriter, r *http.Request)  {
+	defer r.Body.Close()
+	w.Header().Set("Content-Type", "application/json")
+
+	getParams := r.URL.Query()
+	limit := 20
+	if customLimitStrings, ok := getParams["limit"]; ok{
+		if len(customLimitStrings) == 1{
+			if customLimitInt, err := strconv.Atoi(customLimitStrings[0]); err == nil{
+				limit = customLimitInt
+			}
+		}
+	}
+	offset := 0
+	if customOffsetStrings, ok := getParams["offset"]; ok{
+		if len(customOffsetStrings) == 1{
+			if customOffsetInt, err := strconv.Atoi(customOffsetStrings[0]); err == nil{
+				offset = customOffsetInt
+			}
+		}
+	}
+
+	LeaderBoard, err := accessor.Db.SelectLeaderBoard(limit, offset)
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "database_error",
+		})
+		return
+	}
+	// Уже нормальный ответ отсылаем.
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(LeaderBoard)
+	return
+}
+
 func main() {
-	http.HandleFunc("/api/v1/regular-registration", RegistrationRegular)
+	http.HandleFunc("/api/v1/user", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			RegistrationRegular(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			json.NewEncoder(w).Encode(types.ServerResponse{
+				Status:  http.StatusText(http.StatusMethodNotAllowed),
+				Message: "this_method_is_not_supported",
+			})
+		}
+	})
+	// получить всех пользователей для доски лидеров
+	http.HandleFunc("/api/v1/users", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			LeaderBoard(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			json.NewEncoder(w).Encode(types.ServerResponse{
+				Status:  http.StatusText(http.StatusMethodNotAllowed),
+				Message: "this_method_is_not_supported",
+			})
+		}
+	})
+
 	fmt.Println("starting server at :8080")
 	http.ListenAndServe(":8080", nil)
 }
