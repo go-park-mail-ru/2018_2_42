@@ -9,6 +9,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// этот паттерн называется proxy - обёртка вокруг пучка соединений к базе данных
+// не позволяет делать запросы в обход логики
 type DB struct {
 	*sql.DB // Резерв соединений к базе данных.
 }
@@ -191,25 +193,58 @@ offset
 }
 
 func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation []PublicUserInformation, err error) {
+	defer func() {
+		if err != nil {
+			err = errors.New("Error on exec 'SelectLeaderBoard' statment: " + err.Error())
+		}
+	}()
 	rows, err := preparedStatements["selectLeaderBoard"].Query(limit, offset)
 	if err != nil {
-		err = errors.New("Error on exec 'SelectLeaderBoard' statment: " + err.Error())
+		return
 	}
 	defer rows.Close()
-
 	for rows.Next() {
+		if err = rows.Err(); err != nil {
+			return
+		}
 		userInformation := PublicUserInformation{}
-		err = rows.Scan(
+		if err = rows.Scan(
 			&userInformation.Login,
 			&userInformation.AvatarAddress,
 			&userInformation.GamesPlayed,
 			&userInformation.Wins,
-		)
-		if err != nil {
-			err = errors.New("Error on exec 'SelectLeaderBoard' statment: " + err.Error())
+		); err != nil {
 			return
 		}
 		usersInformation = append(usersInformation, userInformation)
+	}
+	return
+}
+
+func init() {
+	preparedStatements["selectUserByLogin"] = must(Db.Prepare(`
+select
+    "user"."login",
+    "user"."avatar_address",
+    "game_statistics"."games_played",
+    "game_statistics"."wins"
+from 
+	"user",
+	"game_statistics"
+where 
+	"user"."login" = $1 and
+	"user"."id" = "game_statistics"."user_id"
+;   `))
+}
+
+func (db *DB) SelectUserByLogin(login string) (userInformation PublicUserInformation, err error) {
+	if err = preparedStatements["selectUserByLogin"].QueryRow(login).Scan(
+		&userInformation.Login,
+		&userInformation.AvatarAddress,
+		&userInformation.GamesPlayed,
+		&userInformation.Wins,
+	); err != nil {
+		err = errors.New("Error on exec 'SelectUserByLogin' statment: " + err.Error())
 	}
 	return
 }

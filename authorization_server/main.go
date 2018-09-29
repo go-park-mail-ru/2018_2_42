@@ -181,9 +181,61 @@ func LeaderBoard(w http.ResponseWriter, r *http.Request)  {
 	return
 }
 
+func UserProfile(w http.ResponseWriter, r *http.Request)  {
+	defer r.Body.Close()
+	getParams := r.URL.Query()
+	login := ""
+	if loginStrings, ok := getParams["login"]; ok{
+		if len(loginStrings) == 1{
+			if login = loginStrings[0]; login != ""{
+				// just working on
+			} else {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(types.ServerResponse{
+					Status:  http.StatusText(http.StatusUnprocessableEntity),
+					Message: "empty_login_field",
+				})
+				return
+			}
+		} else {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(types.ServerResponse{
+				Status:  http.StatusText(http.StatusUnprocessableEntity),
+				Message: "login_must_be_only_1",
+			})
+			return
+		}
+	} else {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusUnprocessableEntity),
+			Message: "field_login_required",
+		})
+		return
+	}
+
+	userProfile, err := accessor.Db.SelectUserByLogin(login)
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "database_error",
+		})
+		return
+	}
+	// нормальный ответ
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(userProfile)
+	return
+}
+
+
 func main() {
 	http.HandleFunc("/api/v1/user", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
+		case http.MethodGet:
+			UserProfile(w, r)
 		case http.MethodPost:
 			RegistrationRegular(w, r)
 		default:
@@ -207,7 +259,8 @@ func main() {
 			})
 		}
 	})
-
 	fmt.Println("starting server at :8080")
 	http.ListenAndServe(":8080", nil)
 }
+
+
