@@ -282,3 +282,20 @@ func (db *DB) SelectUserIdByLoginPasswordHash(login string, passwordHash string)
 	}
 	return
 }
+
+func init() {
+	preparedStatements["dropUsersSession"] = must(Db.Prepare(`
+delete from
+    "current_login"
+where 
+    "current_login"."authorization_token" = $1
+;   `))
+}
+
+func (db *DB) DropUsersSession(authorizationToken string) (err error) {
+	_, err = preparedStatements["dropUsersSession"].Exec(authorizationToken)
+	if err != nil {
+		err = errors.New("Error on exec 'dropUsersSession' statment: " + err.Error())
+	}
+	return err
+}

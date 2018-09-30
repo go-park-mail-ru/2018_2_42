@@ -297,6 +297,42 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func Logout(w http.ResponseWriter, r *http.Request) {
+	//get sid from cookies
+	inCookie, err := r.Cookie("SessionId")
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusUnauthorized),
+			Message: "unauthorized_user",
+		})
+		return
+	}
+	err = accessor.Db.DropUsersSession(inCookie.Value)
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusNotFound),
+			Message: "target_session_not_found",
+		})
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "SessionId",
+		Expires:  time.Unix(0, 0),
+		Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(types.ServerResponse{
+		Status:  http.StatusText(http.StatusOK),
+		Message: "successful_logout",
+	})
+}
+
 func main() {
 	http.HandleFunc("/api/v1/user", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -322,6 +358,7 @@ func main() {
 		case http.MethodPost:
 			Login(w, r)
 		case http.MethodDelete:
+			Logout(w, r)
 		default:
 			ErrorMetodNotAllowed(w, r)
 		}
