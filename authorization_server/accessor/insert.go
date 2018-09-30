@@ -299,3 +299,29 @@ func (db *DB) DropUsersSession(authorizationToken string) (err error) {
 	}
 	return err
 }
+
+func init() {
+	preparedStatements["updateUsersAvatarBySid"] = must(Db.Prepare(`
+update
+    "user"
+set
+    "avatar_address" = $2
+from
+    "current_login"
+where
+    "current_login"."authorization_token" = $1 and
+    "current_login"."user_id" = "user"."id"
+;    `))
+}
+
+func (db *DB) UpdateUsersAvatarBySid(authorizationToken string, avatarAddres string) (err error) {
+	result, err := preparedStatements["updateUsersAvatarBySid"].Exec(authorizationToken, avatarAddres)
+	if err != nil {
+		err = errors.New("Error on exec 'updateUsersAvatarBySid' statment: " + err.Error())
+		return
+	}
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0{
+		err = errors.New("user unknown")
+	}
+	return
+}

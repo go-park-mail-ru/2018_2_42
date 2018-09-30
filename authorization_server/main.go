@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -230,15 +232,6 @@ func UserProfile(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func ErrorMetodNotAllowed(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	w.WriteHeader(http.StatusMethodNotAllowed)
-	json.NewEncoder(w).Encode(types.ServerResponse{
-		Status:  http.StatusText(http.StatusMethodNotAllowed),
-		Message: "this_method_is_not_supported",
-	})
-}
-
 func Login(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
@@ -333,6 +326,79 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func init() {
+	// TODO: вынести в конфиг корень /media/
+	if _, err := os.Stat("./media/images/"); os.IsNotExist(err) {
+		os.MkdirAll("./media/images/", os.ModePerm)
+	}
+}
+
+func SetAvatar(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.Header().Set("Content-Type", "application/json")
+	//get sid from cookies
+	inCookie, err := r.Cookie("SessionId")
+	if err != nil || inCookie.Value == ""{
+		log.Print(err)
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusUnauthorized),
+			Message: "unauthorized_user",
+		})
+		return
+	}
+	r.ParseMultipartForm(0)
+	file, handler, err := r.FormFile("avatar")
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusBadRequest),
+			Message: "cannot_get_file",
+		})
+		return
+	}
+	defer file.Close()
+	f, err := os.Create("./media/images/" + handler.Filename)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "cannot_create_file",
+		})
+		return
+	}
+	defer f.Close()
+	//put avatar path to db
+	err = accessor.Db.UpdateUsersAvatarBySid(inCookie.Value, "/media/images/"+handler.Filename)
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "database_error",
+		})
+		return
+	}
+	io.Copy(f, file)
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(types.ServerResponse{
+		Status:  http.StatusText(http.StatusCreated),
+		Message: "successful_avatar_uploading",
+	})
+	return
+}
+
+func ErrorMetodNotAllowed(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.WriteHeader(http.StatusMethodNotAllowed)
+	json.NewEncoder(w).Encode(types.ServerResponse{
+		Status:  http.StatusText(http.StatusMethodNotAllowed),
+		Message: "this_method_is_not_supported",
+	})
+}
+
 func main() {
 	http.HandleFunc("/api/v1/user", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -363,6 +429,15 @@ func main() {
 			ErrorMetodNotAllowed(w, r)
 		}
 	})
+	http.HandleFunc("/api/v1/avatar", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			SetAvatar(w, r)
+		default:
+			ErrorMetodNotAllowed(w, r)
+		}
+	})
+
 	fmt.Println("starting server at :8080")
 	http.ListenAndServe(":8080", nil)
 }
