@@ -77,6 +77,7 @@ commit;
 // Коллекция идентификаторов предкомпилированных sql запросов.
 // https://postgrespro.ru/docs/postgrespro/10/sql-prepare
 var preparedStatements = map[string]*sql.Stmt{}
+// TODO: it mast be concarent
 
 // По аналогии с regexp.MustCompile используется при запуске,
 // проверяет успешность подготовки SQL для дальнейшего использования.
@@ -158,11 +159,13 @@ insert into "current_login" (
     "authorization_token" -- cookie пользователя
 ) values (
 	$1, $2
-);
-    `))
+) on conflict ("user_id") do update set 
+    "authorization_token" = excluded."authorization_token"
+;   `))
 }
 
-func (db *DB) InsertIntoCurrentLogin(userId UserId, authorizationToken string) (err error) {
+// update or insert
+func (db *DB) UpsertIntoCurrentLogin(userId UserId, authorizationToken string) (err error) {
 	_, err = preparedStatements["insertIntoCurrentLogin"].Exec(userId, authorizationToken)
 	if err != nil {
 		err = errors.New("Error on exec 'InsertIntoGameStatistics' statment: " + err.Error())
@@ -245,6 +248,37 @@ func (db *DB) SelectUserByLogin(login string) (userInformation PublicUserInforma
 		&userInformation.Wins,
 	); err != nil {
 		err = errors.New("Error on exec 'SelectUserByLogin' statment: " + err.Error())
+	}
+	return
+}
+
+func init() {
+	preparedStatements["selectUserIdByLoginPassword"] = must(Db.Prepare(`
+select
+	"user"."id"
+from 
+	"user",
+	"regular_login_information"
+where 
+	"user"."login" = $1 and
+	"user"."id" = "regular_login_information"."user_id" and 
+	"regular_login_information"."password_hash" = $2
+;   `))
+}
+
+func (db *DB) SelectUserIdByLoginPasswordHash(login string, passwordHash string) (exist bool, userId UserId, err error) {
+	err = preparedStatements["selectUserIdByLoginPassword"].QueryRow(login, passwordHash).Scan(
+		&userId,
+	)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			err = nil
+			// exist == false as default.
+		} else {
+			err = errors.New("Error on exec 'SelectUserIdByLoginPasswordHash' statment: " + err.Error())
+		}
+	} else {
+		exist = true
 	}
 	return
 }

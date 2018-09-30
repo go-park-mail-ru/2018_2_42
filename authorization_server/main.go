@@ -117,7 +117,7 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	}
 	// создаём токены авторизации.
 	authorizationToken := randomToken()
-	err = accessor.Db.InsertIntoCurrentLogin(userId, authorizationToken)
+	err = accessor.Db.UpsertIntoCurrentLogin(userId, authorizationToken)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -143,23 +143,23 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func LeaderBoard(w http.ResponseWriter, r *http.Request)  {
+func LeaderBoard(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
 
 	getParams := r.URL.Query()
 	limit := 20
-	if customLimitStrings, ok := getParams["limit"]; ok{
-		if len(customLimitStrings) == 1{
-			if customLimitInt, err := strconv.Atoi(customLimitStrings[0]); err == nil{
+	if customLimitStrings, ok := getParams["limit"]; ok {
+		if len(customLimitStrings) == 1 {
+			if customLimitInt, err := strconv.Atoi(customLimitStrings[0]); err == nil {
 				limit = customLimitInt
 			}
 		}
 	}
 	offset := 0
-	if customOffsetStrings, ok := getParams["offset"]; ok{
-		if len(customOffsetStrings) == 1{
-			if customOffsetInt, err := strconv.Atoi(customOffsetStrings[0]); err == nil{
+	if customOffsetStrings, ok := getParams["offset"]; ok {
+		if len(customOffsetStrings) == 1 {
+			if customOffsetInt, err := strconv.Atoi(customOffsetStrings[0]); err == nil {
 				offset = customOffsetInt
 			}
 		}
@@ -181,13 +181,13 @@ func LeaderBoard(w http.ResponseWriter, r *http.Request)  {
 	return
 }
 
-func UserProfile(w http.ResponseWriter, r *http.Request)  {
+func UserProfile(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	getParams := r.URL.Query()
 	login := ""
-	if loginStrings, ok := getParams["login"]; ok{
-		if len(loginStrings) == 1{
-			if login = loginStrings[0]; login != ""{
+	if loginStrings, ok := getParams["login"]; ok {
+		if len(loginStrings) == 1 {
+			if login = loginStrings[0]; login != "" {
 				// just working on
 			} else {
 				w.WriteHeader(http.StatusUnprocessableEntity)
@@ -230,6 +230,72 @@ func UserProfile(w http.ResponseWriter, r *http.Request)  {
 	return
 }
 
+func ErrorMetodNotAllowed(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.WriteHeader(http.StatusMethodNotAllowed)
+	json.NewEncoder(w).Encode(types.ServerResponse{
+		Status:  http.StatusText(http.StatusMethodNotAllowed),
+		Message: "this_method_is_not_supported",
+	})
+}
+
+func Login(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.Header().Set("Content-Type", "application/json")
+
+	registrationInfo := types.NewUserRegistration{}
+	err := json.NewDecoder(r.Body).Decode(&registrationInfo)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusBadRequest),
+			Message: "invalid_request_format",
+		})
+		return
+	}
+	exists, userId, err := accessor.Db.SelectUserIdByLoginPasswordHash(registrationInfo.Login, sha256hash(registrationInfo.Password))
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "database_error",
+		})
+		return
+	}
+	if exists {
+		authorizationToken := randomToken()
+		err = accessor.Db.UpsertIntoCurrentLogin(userId, authorizationToken)
+		if err != nil {
+			log.Print(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(types.ServerResponse{
+				Status:  http.StatusText(http.StatusInternalServerError),
+				Message: "database_error",
+			})
+			return
+		}
+		// Уже нормальный ответ отсылаем.
+		http.SetCookie(w, &http.Cookie{
+			Name:     "SessionId",
+			Value:    authorizationToken,
+			Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		})
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusAccepted),
+			Message: "successful_password_login",
+		})
+	} else {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusFailedDependency),
+			Message: "wrong_login_or_password",
+		})
+	}
+}
 
 func main() {
 	http.HandleFunc("/api/v1/user", func(w http.ResponseWriter, r *http.Request) {
@@ -239,11 +305,7 @@ func main() {
 		case http.MethodPost:
 			RegistrationRegular(w, r)
 		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			json.NewEncoder(w).Encode(types.ServerResponse{
-				Status:  http.StatusText(http.StatusMethodNotAllowed),
-				Message: "this_method_is_not_supported",
-			})
+			ErrorMetodNotAllowed(w, r)
 		}
 	})
 	// получить всех пользователей для доски лидеров
@@ -252,15 +314,18 @@ func main() {
 		case http.MethodGet:
 			LeaderBoard(w, r)
 		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			json.NewEncoder(w).Encode(types.ServerResponse{
-				Status:  http.StatusText(http.StatusMethodNotAllowed),
-				Message: "this_method_is_not_supported",
-			})
+			ErrorMetodNotAllowed(w, r)
+		}
+	})
+	http.HandleFunc("/api/v1/session", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			Login(w, r)
+		case http.MethodDelete:
+		default:
+			ErrorMetodNotAllowed(w, r)
 		}
 	})
 	fmt.Println("starting server at :8080")
 	http.ListenAndServe(":8080", nil)
 }
-
-
