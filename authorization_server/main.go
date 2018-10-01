@@ -30,7 +30,7 @@ func init() {
 	rand.Seed(time.Now().Unix())
 }
 
-func randomToken() (string) {
+func randomToken() string {
 	cookieChars := []byte("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+_")
 	result := make([]byte, 20)
 	for i := 0; i < 20; {
@@ -131,8 +131,10 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	}
 	// Уже нормальный ответ отсылаем.
 	http.SetCookie(w, &http.Cookie{
-		Name:     "SessionId",
-		Value:    authorizationToken,
+		Name:  "SessionId",
+		Value: authorizationToken,
+		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Permanent_cookie
+		Expires:  time.Now().AddDate(0, 1, 0),
 		Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
@@ -338,7 +340,7 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	//get sid from cookies
 	inCookie, err := r.Cookie("SessionId")
-	if err != nil || inCookie.Value == ""{
+	if err != nil || inCookie.Value == "" {
 		log.Print(err)
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(types.ServerResponse{
@@ -439,5 +441,8 @@ func main() {
 	})
 
 	fmt.Println("starting server at :8080")
-	http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Fatal("failed to start server at :8080 : " + err.Error())
+	}
 }
