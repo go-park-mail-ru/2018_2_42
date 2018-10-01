@@ -212,6 +212,7 @@ func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "SessionId",
 		Value:    authorizationToken,
+		Expires:  time.Now().AddDate(0, 1, 0),
 		Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
