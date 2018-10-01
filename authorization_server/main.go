@@ -42,6 +42,14 @@ func randomToken() string {
 	}
 	return string(result)
 }
+func CORSMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		next.ServeHTTP(w, r)
+	})
+}
 
 // Todo: написать конфиг nginx на отдачу статики.
 const defaultAvatarUrl = "/static/images/default_avatar.jpg"
@@ -134,6 +142,78 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 		Name:  "SessionId",
 		Value: authorizationToken,
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Permanent_cookie
+		Expires:  time.Now().AddDate(0, 1, 0),
+		Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(types.ServerResponse{
+		Status:  http.StatusText(http.StatusCreated),
+		Message: "successful_disposable_registration",
+	})
+	return
+}
+
+// Регистрация пользователей временная.
+func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.Header().Set("Content-Type", "application/json")
+
+	registrationInfo := types.NewUserRegistration{}
+	err := json.NewDecoder(r.Body).Decode(&registrationInfo)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusBadRequest),
+			Message: "invalid_request_format",
+		})
+		return
+	}
+	if registrationInfo.Login == "" {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusUnprocessableEntity),
+			Message: "empty_login",
+		})
+		return
+	}
+	userId, err := accessor.Db.InsertIntoUser(registrationInfo.Login, defaultAvatarUrl, true)
+	if err != nil {
+		if strings.Contains(err.Error(),
+			`duplicate key value violates unique constraint "user_login_key"`) {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(types.ServerResponse{
+				Status:  http.StatusText(http.StatusConflict),
+				Message: "login_is_not_unique",
+			})
+			return
+		} else {
+			log.Print(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(types.ServerResponse{
+				Status:  http.StatusText(http.StatusInternalServerError),
+				Message: "database_error",
+			})
+			return
+		}
+	}
+	// создаём токены авторизации.
+	authorizationToken := randomToken()
+	err = accessor.Db.UpsertIntoCurrentLogin(userId, authorizationToken)
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "database_error",
+		})
+		return
+	}
+	// Уже нормальный ответ отсылаем.
+	http.SetCookie(w, &http.Cookie{
+		Name:     "SessionId",
+		Value:    authorizationToken,
 		Expires:  time.Now().AddDate(0, 1, 0),
 		Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
 		HttpOnly: true,
@@ -402,43 +482,72 @@ func ErrorMetodNotAllowed(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/api/v1/user", func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/api/v1/user", CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			UserProfile(w, r)
+		case http.MethodOptions:
+			return
 		case http.MethodPost:
-			RegistrationRegular(w, r)
+			params := r.URL.Query()
+			if isTemp, ok := params["temporary"]; ok {
+				switch isTemp[0] {
+				case "true":
+					RegistrationTemporary(w, r)
+				case "false":
+					RegistrationRegular(w, r)
+				default:
+					func(w http.ResponseWriter, r *http.Request) {
+						defer r.Body.Close()
+						w.WriteHeader(http.StatusBadRequest)
+						json.NewEncoder(w).Encode(types.ServerResponse{
+							Status:  http.StatusText(http.StatusBadRequest),
+							Message: "invalid_request_format",
+						})
+					}(w, r)
+				}
+			}
 		default:
 			ErrorMetodNotAllowed(w, r)
 		}
-	})
+	})))
+
 	// получить всех пользователей для доски лидеров
-	http.HandleFunc("/api/v1/users", func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/api/v1/users", CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// setupResponse(w, r)
 		switch r.Method {
 		case http.MethodGet:
 			LeaderBoard(w, r)
+		case http.MethodOptions:
+			return
 		default:
 			ErrorMetodNotAllowed(w, r)
 		}
-	})
-	http.HandleFunc("/api/v1/session", func(w http.ResponseWriter, r *http.Request) {
+	})))
+
+	http.Handle("/api/v1/session", CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			Login(w, r)
 		case http.MethodDelete:
 			Logout(w, r)
+		case http.MethodOptions:
+			return
 		default:
 			ErrorMetodNotAllowed(w, r)
 		}
-	})
-	http.HandleFunc("/api/v1/avatar", func(w http.ResponseWriter, r *http.Request) {
+	})))
+
+	http.Handle("/api/v1/avatar", CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			SetAvatar(w, r)
+		case http.MethodOptions:
+			return
 		default:
 			ErrorMetodNotAllowed(w, r)
 		}
-	})
+	})))
 
 	fmt.Println("starting server at :8080")
 	err := http.ListenAndServe(":8080", nil)
