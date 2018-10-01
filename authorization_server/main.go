@@ -30,7 +30,7 @@ func init() {
 	rand.Seed(time.Now().Unix())
 }
 
-func randomToken() (string) {
+func randomToken() string {
 	cookieChars := []byte("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+_")
 	result := make([]byte, 20)
 	for i := 0; i < 20; {
@@ -42,11 +42,13 @@ func randomToken() (string) {
 	}
 	return string(result)
 }
-
-func setupResponse(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+func CORSMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // Todo: написать конфиг nginx на отдачу статики.
@@ -415,7 +417,7 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	//get sid from cookies
 	inCookie, err := r.Cookie("SessionId")
-	if err != nil || inCookie.Value == ""{
+	if err != nil || inCookie.Value == "" {
 		log.Print(err)
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(types.ServerResponse{
@@ -477,39 +479,39 @@ func ErrorMetodNotAllowed(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/api/v1/user", func(w http.ResponseWriter, r *http.Request) {
-		setupResponse(w, r)
+	http.Handle("/api/v1/user", CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			UserProfile(w, r)
 		case http.MethodOptions:
 			return
 		case http.MethodPost:
-			params :=  r.URL.Query()
-			if isTemp, ok := params["temporary"]; ok{
+			params := r.URL.Query()
+			if isTemp, ok := params["temporary"]; ok {
 				switch isTemp[0] {
 				case "true":
 					RegistrationTemporary(w, r)
 				case "false":
 					RegistrationRegular(w, r)
-				default: 
-				func(w http.ResponseWriter, r *http.Request){
+				default:
+					func(w http.ResponseWriter, r *http.Request) {
 						defer r.Body.Close()
 						w.WriteHeader(http.StatusBadRequest)
 						json.NewEncoder(w).Encode(types.ServerResponse{
 							Status:  http.StatusText(http.StatusBadRequest),
 							Message: "invalid_request_format",
 						})
-					}(w, r)	
+					}(w, r)
 				}
-			} 
+			}
 		default:
 			ErrorMetodNotAllowed(w, r)
 		}
-	})
+	})))
+
 	// получить всех пользователей для доски лидеров
-	http.HandleFunc("/api/v1/users", func(w http.ResponseWriter, r *http.Request) {
-		setupResponse(w, r)
+	http.Handle("/api/v1/users", CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// setupResponse(w, r)
 		switch r.Method {
 		case http.MethodGet:
 			LeaderBoard(w, r)
@@ -518,9 +520,9 @@ func main() {
 		default:
 			ErrorMetodNotAllowed(w, r)
 		}
-	})
-	http.HandleFunc("/api/v1/session", func(w http.ResponseWriter, r *http.Request) {
-		setupResponse(w, r)
+	})))
+
+	http.Handle("/api/v1/session", CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			Login(w, r)
@@ -531,9 +533,9 @@ func main() {
 		default:
 			ErrorMetodNotAllowed(w, r)
 		}
-	})
-	http.HandleFunc("/api/v1/avatar", func(w http.ResponseWriter, r *http.Request) {
-		setupResponse(w, r)
+	})))
+
+	http.Handle("/api/v1/avatar", CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			SetAvatar(w, r)
@@ -542,7 +544,7 @@ func main() {
 		default:
 			ErrorMetodNotAllowed(w, r)
 		}
-	})
+	})))
 
 	fmt.Println("starting server at :8080")
 	http.ListenAndServe(":8080", nil)
