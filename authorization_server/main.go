@@ -51,8 +51,7 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// Todo: написать конфиг nginx на отдачу статики.
-const defaultAvatarUrl = "/static/images/default_avatar.jpg"
+const defaultAvatarUrl = "/images/default.png"
 
 // Регистрация пользователей обычная.
 func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
