@@ -19,7 +19,7 @@ var Db DB // собственный тип, что бы прикреплять �
 
 func init() {
 	newDb, err := sql.Open("postgres",
-		"postgres://postgres:@localhost:5432/postgres?sslmode=disable")
+		"postgres://postgres:@pg:5432/postgres?sslmode=disable")
 	if err != nil {
 		panic(err)
 	} else {
