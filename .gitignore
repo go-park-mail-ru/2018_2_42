@@ -12,5 +12,7 @@
 *.out
 
 # Development environment settings
-*/.idea/*
+.idea
 
+# Docker conteiners results 
+*.tar

@@ -149,7 +149,7 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(types.ServerResponse{
 		Status:  http.StatusText(http.StatusCreated),
-		Message: "successful_disposable_registration",
+		Message: "successful_reusable_registration",
 	})
 	return
 }
@@ -407,10 +407,12 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Корень, куда сохраняются аватарки и прочие загружаемые пользователем ресурсы.
+const mediaRoot = "/var/www/media"
+
 func init() {
-	// TODO: вынести в конфиг корень /media/
-	if _, err := os.Stat("./media/images/"); os.IsNotExist(err) {
-		os.MkdirAll("./media/images/", os.ModePerm)
+	if _, err := os.Stat(mediaRoot + "/images"); os.IsNotExist(err) {
+		err = os.MkdirAll(mediaRoot + "/images", os.ModePerm)
 	}
 }
 
@@ -440,7 +442,8 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
-	f, err := os.Create("./media/images/" + handler.Filename)
+	                  // /var/www/media/images/image.jpeg
+	f, err := os.Create(mediaRoot + "/images/" + handler.Filename)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -489,23 +492,26 @@ func main() {
 			return
 		case http.MethodPost:
 			params := r.URL.Query()
-			if isTemp, ok := params["temporary"]; ok {
-				switch isTemp[0] {
-				case "true":
-					RegistrationTemporary(w, r)
-				case "false":
-					RegistrationRegular(w, r)
-				default:
-					func(w http.ResponseWriter, r *http.Request) {
-						defer r.Body.Close()
-						w.WriteHeader(http.StatusBadRequest)
-						json.NewEncoder(w).Encode(types.ServerResponse{
-							Status:  http.StatusText(http.StatusBadRequest),
-							Message: "invalid_request_format",
-						})
-					}(w, r)
+			if isTemporary, ok := params["temporary"]; ok {
+				if len(isTemporary) == 1{
+					switch isTemporary[0] {
+					case "true":
+						RegistrationTemporary(w, r)
+						return
+					case "false":
+						RegistrationRegular(w, r)
+						return
+					}
 				}
 			}
+			func(w http.ResponseWriter, r *http.Request) {
+				defer r.Body.Close()
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(types.ServerResponse{
+					Status:  http.StatusText(http.StatusBadRequest),
+					Message: "field_'temporary'_required",
+				})
+			}(w, r)
 		default:
 			ErrorMetodNotAllowed(w, r)
 		}
