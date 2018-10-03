@@ -3,11 +3,12 @@
 package main
 
 import (
+	"io/ioutil"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
+	// "io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -140,7 +141,6 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:  "SessionId",
 		Value: authorizationToken,
-		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Permanent_cookie
 		Expires:  time.Now().AddDate(0, 1, 0),
 		Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
 		HttpOnly: true,
@@ -428,31 +428,43 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	r.ParseMultipartForm(0)
-	file, handler, err := r.FormFile("avatar")
+	
+	uid, err := accessor.Db.GetUSerBySid(inCookie.Value)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusBadRequest),
-			Message: "cannot_get_file",
+			Message: "wrong_cookie",
 		})
 		return
 	}
-	defer file.Close()
-	f, err := os.Create("./media/images/" + handler.Filename)
+	
+	filepath := string("./media/images/" + strconv.Itoa(int(uid)) + ".png")
+
+	buf, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(types.ServerResponse{
-			Status:  http.StatusText(http.StatusInternalServerError),
+			Status:  http.StatusText(http.StatusBadRequest),
+			Message: "cannot_read_file",
+		})
+		return
+	}
+
+	err = ioutil.WriteFile(filepath, buf, 664)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusBadRequest),
 			Message: "cannot_create_file",
 		})
 		return
 	}
-	defer f.Close()
-	//put avatar path to db
-	err = accessor.Db.UpdateUsersAvatarBySid(inCookie.Value, "/media/images/"+handler.Filename)
+	
+	err = accessor.Db.UpdateUsersAvatarBySid(inCookie.Value, filepath)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -462,7 +474,7 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	io.Copy(f, file)
+	
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(types.ServerResponse{
 		Status:  http.StatusText(http.StatusCreated),

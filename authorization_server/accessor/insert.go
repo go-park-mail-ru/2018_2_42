@@ -19,7 +19,7 @@ var Db DB // собственный тип, что бы прикреплять �
 
 func init() {
 	newDb, err := sql.Open("postgres",
-		"postgres://postgres:@pg:5432/postgres?sslmode=disable")
+	"postgres://postgres:@pg:5432/postgres?sslmode=disable")
 	if err != nil {
 		panic(err)
 	} else {
@@ -322,6 +322,22 @@ func (db *DB) UpdateUsersAvatarBySid(authorizationToken string, avatarAddres str
 	}
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0{
 		err = errors.New("user unknown")
+	}
+	return
+}
+
+func init() {
+	preparedStatements["getUserBySid"] = must(Db.Prepare(`
+	select "user"."id" from "user"
+	join "current_login" on "current_login"."user_id" = "user"."id" 
+	where "current_login"."authorization_token" = $1;
+	`))
+}
+
+func (db *DB) GetUSerBySid(authorizationToken string) (id UserId, err error) {
+	err = preparedStatements["getUserBySid"].QueryRow(authorizationToken).Scan(&id)
+	if err != nil {
+		err = errors.New("Error on exec 'getUserBySid' statment: " + err.Error())
 	}
 	return
 }
