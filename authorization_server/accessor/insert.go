@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	_ "github.com/lib/pq"
+	"log"
 )
 
 // этот паттерн называется proxy - обёртка вокруг пучка соединений к базе данных
@@ -21,11 +22,16 @@ func init() {
 	newDb, err := sql.Open("postgres",
 		"postgres://postgres:@localhost:5432/postgres?sslmode=disable")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	} else {
 		Db = DB{newDb}
 	}
-	// TODO: db.Close() в конце main.
+
+	err = Db.Ping()
+	if err != nil {
+		log.Fatal(errors.New("error during the first connection (Are you sure that the database exists and the application has access to it?): " + err.Error()))
+	}
+
 	_, err = Db.Exec(`
 begin transaction;
 
@@ -70,20 +76,15 @@ create table if not exists "current_login" (
 commit;
 	`)
 	if err != nil {
-		panic(err)
+		log.Fatal(errors.New("error during preparation database tables: " + err.Error()))
 	}
 }
 
-// Коллекция идентификаторов предкомпилированных sql запросов.
-// https://postgrespro.ru/docs/postgrespro/10/sql-prepare
-var preparedStatements = map[string]*sql.Stmt{}
-// TODO: it mast be concarent
-
 // По аналогии с regexp.MustCompile используется при запуске,
 // проверяет успешность подготовки SQL для дальнейшего использования.
-func must(stmt *sql.Stmt, err error) (*sql.Stmt) {
+func must(stmt *sql.Stmt, err error) *sql.Stmt {
 	if err != nil {
-		panic(errors.New("error when compiling SQL expression: " + err.Error()))
+		log.Fatal(errors.New("error when compiling SQL expression: " + err.Error()))
 	}
 	return stmt
 }
@@ -91,8 +92,10 @@ func must(stmt *sql.Stmt, err error) (*sql.Stmt) {
 // Далее функции, реализующие логику зпросов к базе.
 
 // В подобных init подготавливаются все зпросы SQL.
+var stmtInsertIntoUser *sql.Stmt
+
 func init() {
-	preparedStatements["insertIntoUser"] = must(Db.Prepare(`
+	stmtInsertIntoUser = must(Db.Prepare(`
 insert into "user"(
 	"login",
 	"avatar_address",
@@ -106,15 +109,17 @@ insert into "user"(
 
 // Такие функции скрывают нетипизированность prepared statement.
 func (db *DB) InsertIntoUser(login string, avatarAddress string, disposable bool) (id UserId, err error) {
-	err = preparedStatements["insertIntoUser"].QueryRow(login, avatarAddress, disposable).Scan(&id)
+	err = stmtInsertIntoUser.QueryRow(login, avatarAddress, disposable).Scan(&id)
 	if err != nil {
 		err = errors.New("Error on exec 'insertIntoUser' statment: " + err.Error())
 	}
 	return id, err
 }
 
+var stmtInsertIntoRegularLoginInformation *sql.Stmt
+
 func init() {
-	preparedStatements["insertIntoRegularLoginInformation"] = must(Db.Prepare(`
+	stmtInsertIntoRegularLoginInformation = must(Db.Prepare(`
 insert into "regular_login_information"(
 	"user_id",
 	"password_hash"
@@ -125,15 +130,17 @@ insert into "regular_login_information"(
 }
 
 func (db *DB) InsertIntoRegularLoginInformation(userId UserId, passwordHash string) (err error) {
-	_, err = preparedStatements["insertIntoRegularLoginInformation"].Exec(userId, passwordHash)
+	_, err = stmtInsertIntoRegularLoginInformation.Exec(userId, passwordHash)
 	if err != nil {
 		err = errors.New("Error on exec 'InsertIntoRegularLoginInformation' statment: " + err.Error())
 	}
 	return err
 }
 
+var stmtInsertIntoGameStatistics *sql.Stmt
+
 func init() {
-	preparedStatements["insertIntoGameStatistics"] = must(Db.Prepare(`
+	stmtInsertIntoGameStatistics = must(Db.Prepare(`
 insert into "game_statistics" (
 	"user_id",
 	"games_played",
@@ -145,15 +152,17 @@ insert into "game_statistics" (
 }
 
 func (db *DB) InsertIntoGameStatistics(userId UserId, gamesPlayed int32, wins int32) (err error) {
-	_, err = preparedStatements["insertIntoGameStatistics"].Exec(userId, gamesPlayed, wins)
+	_, err = stmtInsertIntoGameStatistics.Exec(userId, gamesPlayed, wins)
 	if err != nil {
 		err = errors.New("Error on exec 'insertIntoGameStatistics' statment: " + err.Error())
 	}
 	return err
 }
 
+var stmtInsertIntoCurrentLogin *sql.Stmt
+
 func init() {
-	preparedStatements["insertIntoCurrentLogin"] = must(Db.Prepare(`
+	stmtInsertIntoCurrentLogin = must(Db.Prepare(`
 insert into "current_login" (
 	"user_id",
     "authorization_token" -- cookie пользователя
@@ -166,15 +175,17 @@ insert into "current_login" (
 
 // update or insert
 func (db *DB) UpsertIntoCurrentLogin(userId UserId, authorizationToken string) (err error) {
-	_, err = preparedStatements["insertIntoCurrentLogin"].Exec(userId, authorizationToken)
+	_, err = stmtInsertIntoCurrentLogin.Exec(userId, authorizationToken)
 	if err != nil {
 		err = errors.New("Error on exec 'InsertIntoGameStatistics' statment: " + err.Error())
 	}
 	return err
 }
 
+var stmtSelectLeaderBoard *sql.Stmt
+
 func init() {
-	preparedStatements["selectLeaderBoard"] = must(Db.Prepare(`
+	stmtSelectLeaderBoard = must(Db.Prepare(`
 select
     "user"."login",
     "user"."avatar_address",
@@ -201,7 +212,7 @@ func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation []Publi
 			err = errors.New("Error on exec 'SelectLeaderBoard' statment: " + err.Error())
 		}
 	}()
-	rows, err := preparedStatements["selectLeaderBoard"].Query(limit, offset)
+	rows, err := stmtSelectLeaderBoard.Query(limit, offset)
 	if err != nil {
 		return
 	}
@@ -224,8 +235,10 @@ func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation []Publi
 	return
 }
 
+var stmtSelectUserByLogin *sql.Stmt
+
 func init() {
-	preparedStatements["selectUserByLogin"] = must(Db.Prepare(`
+	stmtSelectUserByLogin = must(Db.Prepare(`
 select
     "user"."login",
     "user"."avatar_address",
@@ -241,7 +254,7 @@ where
 }
 
 func (db *DB) SelectUserByLogin(login string) (userInformation PublicUserInformation, err error) {
-	if err = preparedStatements["selectUserByLogin"].QueryRow(login).Scan(
+	if err = stmtSelectUserByLogin.QueryRow(login).Scan(
 		&userInformation.Login,
 		&userInformation.AvatarAddress,
 		&userInformation.GamesPlayed,
@@ -252,8 +265,10 @@ func (db *DB) SelectUserByLogin(login string) (userInformation PublicUserInforma
 	return
 }
 
+var stmtSelectUserIdByLoginPassword *sql.Stmt
+
 func init() {
-	preparedStatements["selectUserIdByLoginPassword"] = must(Db.Prepare(`
+	stmtSelectUserIdByLoginPassword = must(Db.Prepare(`
 select
 	"user"."id"
 from 
@@ -267,7 +282,7 @@ where
 }
 
 func (db *DB) SelectUserIdByLoginPasswordHash(login string, passwordHash string) (exist bool, userId UserId, err error) {
-	err = preparedStatements["selectUserIdByLoginPassword"].QueryRow(login, passwordHash).Scan(
+	err = stmtSelectUserIdByLoginPassword.QueryRow(login, passwordHash).Scan(
 		&userId,
 	)
 	if err != nil {
@@ -283,8 +298,10 @@ func (db *DB) SelectUserIdByLoginPasswordHash(login string, passwordHash string)
 	return
 }
 
+var stmtDropUsersSession *sql.Stmt
+
 func init() {
-	preparedStatements["dropUsersSession"] = must(Db.Prepare(`
+	stmtDropUsersSession = must(Db.Prepare(`
 delete from
     "current_login"
 where 
@@ -293,15 +310,17 @@ where
 }
 
 func (db *DB) DropUsersSession(authorizationToken string) (err error) {
-	_, err = preparedStatements["dropUsersSession"].Exec(authorizationToken)
+	_, err = stmtDropUsersSession.Exec(authorizationToken)
 	if err != nil {
 		err = errors.New("Error on exec 'dropUsersSession' statment: " + err.Error())
 	}
 	return err
 }
 
+var stmtUpdateUsersAvatarBySid *sql.Stmt
+
 func init() {
-	preparedStatements["updateUsersAvatarBySid"] = must(Db.Prepare(`
+	stmtUpdateUsersAvatarBySid = must(Db.Prepare(`
 update
     "user"
 set
@@ -315,12 +334,12 @@ where
 }
 
 func (db *DB) UpdateUsersAvatarBySid(authorizationToken string, avatarAddres string) (err error) {
-	result, err := preparedStatements["updateUsersAvatarBySid"].Exec(authorizationToken, avatarAddres)
+	result, err := stmtUpdateUsersAvatarBySid.Exec(authorizationToken, avatarAddres)
 	if err != nil {
 		err = errors.New("Error on exec 'updateUsersAvatarBySid' statment: " + err.Error())
 		return
 	}
-	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0{
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
 		err = errors.New("user unknown")
 	}
 	return
