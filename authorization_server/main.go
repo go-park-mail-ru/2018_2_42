@@ -1,5 +1,3 @@
-// TODO: описать в swagger, https://github.com/swaggo/swag
-
 package main
 
 import (

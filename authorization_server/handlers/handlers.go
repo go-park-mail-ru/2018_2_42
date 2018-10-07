@@ -1,3 +1,9 @@
+// @title authorization server for technopark game.
+// @version 1.0
+// @description This is a registration server will be used for our game.
+// @contact.email cup.of.software.code@gmail.com
+// @BasePath /api/v1
+
 package handlers
 
 import (
@@ -51,7 +57,19 @@ func CORSMiddleware(next http.Handler) http.Handler {
 
 const defaultAvatarUrl = "/images/default.png"
 
-// Регистрация пользователей обычная.
+// RegistrationRegular godoc
+// @Summary Regular user registration.
+// @Description Registrate users with password and statistics.
+// @Tags user
+// @Accept application/json
+// @Produce application/json
+// @Param registrationInfo body types.NewUserRegistration true "login password"
+// @Success 201 {object} types.ServerResponse
+// @Failure 400 {object} types.ServerResponse
+// @Failure 409 {object} types.ServerResponse
+// @Failure 422 {object} types.ServerResponse
+// @Failure 500 {object} types.ServerResponse
+// @Router /api/v1/user?temporary=false [post]
 func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
@@ -153,6 +171,16 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 }
 
 // Регистрация пользователей временная.
+// RegistrationTemporary godoc
+// @Summary Temporary user registration.
+// @Description Сreates user without statistics and password, stub so that you can play 1 session without creating an account.
+// @Tags user
+// @Accept application/json
+// @Produce application/json
+// @Param registrationInfo body types.NewUserRegistration true "login password"
+// @Success 200 {object} types.ServerResponse
+// @Failure 500 {object} types.ServerResponse
+// @Router /api/v1/user&temporary=true [post]
 func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
@@ -224,6 +252,17 @@ func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// LeaderBoard godoc
+// @Summary Get liderboard with best user information.
+// @Description Return login, avatarAddress, gamesPlayed and wins information for earch user.
+// @Tags users
+// @Accept application/json
+// @Produce application/json
+// @Param limit query int false "Lenth of returning user list."
+// @Param offset query int false "Offset relative to the leader."
+// @Success 200 {array} accessor.PublicUserInformation
+// @Failure 500 {object} types.ServerResponse
+// @Router /api/v1/users [get]
 func LeaderBoard(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
@@ -262,6 +301,17 @@ func LeaderBoard(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// UserProfile godoc
+// @Summary Get user information.
+// @Description Return login, avatarAddress, gamesPlayed, wins, information.
+// @Tags user
+// @Accept application/json
+// @Produce application/json
+// @Param login query string true "login password"
+// @Success 200 {object} accessor.PublicUserInformation
+// @Failure 422 {object} types.ServerResponse
+// @Failure 500 {object} types.ServerResponse
+// @Router /api/v1/user [get]
 func UserProfile(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	getParams := r.URL.Query()
@@ -311,6 +361,18 @@ func UserProfile(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// Login godoc
+// @Summary Login into account.
+// @Description Set cookie on client and save them in database.
+// @Tags session
+// @Accept application/json
+// @Produce application/json
+// @Param registrationInfo body types.NewUserRegistration true "login password"
+// @Success 202 {object} types.ServerResponse
+// @Failure 400 {object} types.ServerResponse
+// @Failure 403 {object} types.ServerResponse
+// @Failure 500 {object} types.ServerResponse
+// @Router /api/v1/session [post]
 func Login(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
@@ -369,6 +431,16 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Logout godoc
+// @Summary Log registered user out.
+// @Description Delete cookie in client and database.
+// @Tags session
+// @Accept application/json
+// @Produce application/json
+// @Success 200 {object} types.ServerResponse
+// @Failure 404 {object} types.ServerResponse
+// @Failure 401 {object} types.ServerResponse
+// @Router /api/v1/session [delete]
 func Logout(w http.ResponseWriter, r *http.Request) {
 	//get sid from cookies
 	inCookie, err := r.Cookie("SessionId")
@@ -414,6 +486,17 @@ func init() {
 	}
 }
 
+// Logout godoc
+// @Summary Upload user avatar.
+// @Description Upload avatar from \<form enctype='multipart/form-data' action='/api/v1/avatar'>\<input type="file" name="avatar"></form>.
+// @Tags avatar
+// @Accept multipart/form-data
+// @Produce application/json
+// @Success 201 {object} types.ServerResponse
+// @Failure 400 {object} types.ServerResponse
+// @Failure 401 {object} types.ServerResponse
+// @Failure 500 {object} types.ServerResponse
+// @Router /api/v1/avatar [post]
 func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
