@@ -300,28 +300,64 @@ func (db *DB) DropUsersSession(authorizationToken string) (err error) {
 	return err
 }
 
+
 func init() {
-	preparedStatements["updateUsersAvatarBySid"] = must(Db.Prepare(`
+	preparedStatements["updateUsersAvatarByUserId"] = must(Db.Prepare(`
 update
     "user"
 set
     "avatar_address" = $2
-from
-    "current_login"
 where
-    "current_login"."authorization_token" = $1 and
-    "current_login"."user_id" = "user"."id"
+    "user"."id" = $1
 ;    `))
 }
 
-func (db *DB) UpdateUsersAvatarBySid(authorizationToken string, avatarAddres string) (err error) {
-	result, err := preparedStatements["updateUsersAvatarBySid"].Exec(authorizationToken, avatarAddres)
+func (db *DB) UpdateUsersAvatarByUserId(userId UserId, avatarAddres string) (err error) {
+	result, err := preparedStatements["updateUsersAvatarByUserId"].Exec(userId, avatarAddres)
 	if err != nil {
-		err = errors.New("Error on exec 'updateUsersAvatarBySid' statment: " + err.Error())
+		err = errors.New("Error on exec 'updateUsersAvatarByUserId' statment: " + err.Error())
 		return
 	}
-	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0{
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
 		err = errors.New("user unknown")
+	}
+	return
+}
+
+func init() {
+	preparedStatements["selectUserBySid"] = must(Db.Prepare(`
+select 	
+	"user"."id",
+	"user"."login",
+	"user"."avatar_address",
+	"user"."disposable",
+	"user"."last_login_time"
+from 
+	"user"
+join 
+	"current_login" on "current_login"."user_id" = "user"."id"
+where
+	"current_login"."authorization_token" = $1
+;    `))
+}
+
+func (db *DB) SelectUserBySid(authorizationToken string) (exist bool, user User, err error) {
+	err = preparedStatements["selectUserBySid"].QueryRow(authorizationToken).Scan(
+		&user.Id,
+		&user.Login,
+		&user.AvatarAddress,
+		&user.Disposable,
+		&user.LastLoginTime,
+	)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			err = nil
+			// exist == false as default.
+		} else {
+			err = errors.New("Error on exec 'SelectUserBySid' statment: " + err.Error())
+		}
+	} else {
+		exist = true
 	}
 	return
 }

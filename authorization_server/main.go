@@ -416,60 +416,66 @@ func init() {
 	}
 }
 
+const MaxAvatarSize = 2 * 1024 * 1024
+
 func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
 	//get sid from cookies
 	inCookie, err := r.Cookie("SessionId")
-	if err != nil || inCookie.Value == "" {
-		log.Print(err)
-		w.WriteHeader(http.StatusUnauthorized)
+
+	_, user, err := accessor.Db.SelectUserBySid(inCookie.Value)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(types.ServerResponse{
-			Status:  http.StatusText(http.StatusUnauthorized),
-			Message: "unauthorized_user",
+			Status:  http.StatusText(http.StatusForbidden),
+			Message: "not authorized",
 		})
 		return
 	}
-	r.ParseMultipartForm(0)
-	file, handler, err := r.FormFile("avatar")
-	if err != nil {
-		fmt.Println(err)
+
+	if r.ContentLength > MaxAvatarSize {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusBadRequest),
-			Message: "cannot_get_file",
-		})
+			Message: "рicture is too big",
+		})	
+		return
+	 }
+
+	file, handler, err := r.FormFile("avatar")
+
+	defer file.Close()
+	if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(types.ServerResponse{
+				Status:  http.StatusText(http.StatusBadRequest),
+				Message: "invalid request format",
+			})	
 		return
 	}
-	defer file.Close()
-	                  // /var/www/media/images/image.jpeg
-	f, err := os.Create(mediaRoot + "/images/" + handler.Filename)
+	// /var/www/media/images/image.jpeg
+	filename := user.Login + handler.Filename[strings.LastIndex(handler.Filename, "."):]
+	f, err := os.Create(mediaRoot + "/images/" + filename)
+	defer f.Close()
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
-			Status:  http.StatusText(http.StatusInternalServerError),
-			Message: "cannot_create_file",
-		})
-		return
-	}
-	defer f.Close()
-	//put avatar path to db
-	err = accessor.Db.UpdateUsersAvatarBySid(inCookie.Value, "/media/images/"+handler.Filename)
-	if err != nil {
-		log.Print(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
-			Status:  http.StatusText(http.StatusInternalServerError),
-			Message: "database_error",
-		})
 		return
 	}
 	io.Copy(f, file)
+	//put avatar path to db
+	err = accessor.Db.UpdateUsersAvatarByUserId(user.Id, mediaRoot + "/images/" + filename)
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(types.ServerResponse{
 		Status:  http.StatusText(http.StatusCreated),
-		Message: "successful_avatar_uploading",
+		Message: "successful set awatar",
 	})
 	return
 }
@@ -493,7 +499,7 @@ func main() {
 		case http.MethodPost:
 			params := r.URL.Query()
 			if isTemporary, ok := params["temporary"]; ok {
-				if len(isTemporary) == 1{
+				if len(isTemporary) == 1 {
 					switch isTemporary[0] {
 					case "true":
 						RegistrationTemporary(w, r)

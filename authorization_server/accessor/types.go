@@ -1,6 +1,7 @@
 package accessor
 
 import (
+	"time"
 	"database/sql"
 )
 
@@ -10,7 +11,7 @@ type User struct {
 	Id            UserId // первичный ключ, через который связаны остальные поля.
 	Login         string // видимое другим игрокам имя пользователя
 	AvatarAddress string // адрес относительно корня сайта: '/media/name-src32.ext'
-	LastLoginTime int64  // timestamp
+	LastLoginTime time.Time  // timestamp
 	Disposable    bool   /* Играет ли пользователь просто так, без sms и регистрации (и попадания
 	                        в таблицу рекордов). Такие пользователи создаются, когда входят в
 	                        игру с одним только именем, и удаляются при выходе из партии. */
