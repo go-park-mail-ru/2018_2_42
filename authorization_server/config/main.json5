@@ -1,0 +1,5 @@
+// Все конфигурационные записи сервера.
+{
+  // конфигурация, которая используется при открытии соединения к postgres в db.Open().
+  "data_source_name": "postgres://postgres:@localhost:5432/postgres?sslmode=disable",
+}

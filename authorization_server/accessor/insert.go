@@ -4,10 +4,13 @@
 package accessor
 
 import (
+	"authorization_server/config"
 	"database/sql"
 	"errors"
+	"fmt"
 	_ "github.com/lib/pq"
 	"log"
+	"reflect"
 )
 
 // этот паттерн называется proxy - обёртка вокруг пучка соединений к базе данных
@@ -19,8 +22,19 @@ type DB struct {
 var Db DB // собственный тип, что бы прикреплять к нему функции с бизнес логикой.
 
 func init() {
-	newDb, err := sql.Open("postgres",
-		"postgres://postgres:@localhost:5432/postgres?sslmode=disable")
+	dataSourceName := ""
+	if data, err := config.ParseConfig(); err == nil {
+		if reflect.TypeOf(data["data_source_name"]).Kind() == reflect.String {
+			dataSourceName = data["data_source_name"].(string)
+		} else {
+			log.Fatal(errors.New(fmt.Sprintf(
+				"not string 'data_source_name' configuration param '%v'", data["data_source_name"])))
+		}
+	} else {
+		log.Fatal(err)
+	}
+
+	newDb, err := sql.Open("postgres", dataSourceName)
 	if err != nil {
 		log.Fatal(err)
 	} else {

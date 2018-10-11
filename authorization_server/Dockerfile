@@ -4,7 +4,7 @@
 # sudo docker run --network="host" --detach --volume "/var/www/media/images":"/var/www/media/images" authorization_server
 
 FROM golang:1.11
-# GOPATH="/go"
+# GOPATH='/go'
 # копируем исходники
 COPY '.' '/go/src/authorization_server'
 # скачиваем все зависимости
@@ -14,7 +14,9 @@ go get -v ./... &&  \
 go build -o '/go/bin/authorization_server' authorization_server && \
 # папки под аватарки создаём
 mkdir --parents --mode=a+rwx '/var/www/media' ;
+# копируем конфиг в папку с исполняемым файлом.
+COPY './config/main.json5' '/go/bin/main.json5'
 # При запуске контейнера запустить сервер
-CMD "/go/bin/authorization_server"
+CMD '/go/bin/authorization_server'
 # сделать порт доступным.
 EXPOSE 8080
