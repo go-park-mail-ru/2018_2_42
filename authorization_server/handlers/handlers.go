@@ -18,6 +18,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -500,13 +501,31 @@ func init() {
 func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
-	//get sid from cookies
-	inCookie, err := r.Cookie("SessionId")
-	if err != nil || inCookie.Value == "" {
+	//get SessionId from cookies
+	cookie, err := r.Cookie("SessionId")
+	if err != nil || cookie.Value == "" {
 		log.Print(err)
-		w.WriteHeader(http.StatusUnauthorized)
+		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(types.ServerResponse{
-			Status:  http.StatusText(http.StatusUnauthorized),
+			Status:  http.StatusText(http.StatusForbidden),
+			Message: "unauthorized_user",
+		})
+		return
+	}
+	exist, user, err := accessor.Db.SelectUserBySessionId(cookie.Value)
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "cannot_create_file",
+		})
+		return
+	}
+	if !exist {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(types.ServerResponse{
+			Status:  http.StatusText(http.StatusForbidden),
 			Message: "unauthorized_user",
 		})
 		return
@@ -523,8 +542,9 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
-	// /var/www/media/images/image.jpeg
-	f, err := os.Create(mediaRoot + "/images/" + handler.Filename)
+	// /var/www/media/images/login.jpeg
+	fileName := user.Login + filepath.Ext(handler.Filename)
+	f, err := os.Create(mediaRoot + "/images/" + fileName)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -536,7 +556,7 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 	//put avatar path to db
-	err = accessor.Db.UpdateUsersAvatarBySid(inCookie.Value, "/media/images/"+handler.Filename)
+	err = accessor.Db.UpdateUsersAvatarByLogin(user.Login, "/media/images/" + fileName)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)

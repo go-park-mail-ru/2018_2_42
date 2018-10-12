@@ -125,7 +125,7 @@ insert into "user"(
 func (db *DB) InsertIntoUser(login string, avatarAddress string, disposable bool) (id UserId, err error) {
 	err = stmtInsertIntoUser.QueryRow(login, avatarAddress, disposable).Scan(&id)
 	if err != nil {
-		err = errors.New("Error on exec 'insertIntoUser' statment: " + err.Error())
+		err = errors.New("Error on exec 'insertIntoUser' statement: " + err.Error())
 	}
 	return id, err
 }
@@ -146,7 +146,7 @@ insert into "regular_login_information"(
 func (db *DB) InsertIntoRegularLoginInformation(userId UserId, passwordHash string) (err error) {
 	_, err = stmtInsertIntoRegularLoginInformation.Exec(userId, passwordHash)
 	if err != nil {
-		err = errors.New("Error on exec 'InsertIntoRegularLoginInformation' statment: " + err.Error())
+		err = errors.New("Error on exec 'InsertIntoRegularLoginInformation' statement: " + err.Error())
 	}
 	return err
 }
@@ -168,7 +168,7 @@ insert into "game_statistics" (
 func (db *DB) InsertIntoGameStatistics(userId UserId, gamesPlayed int32, wins int32) (err error) {
 	_, err = stmtInsertIntoGameStatistics.Exec(userId, gamesPlayed, wins)
 	if err != nil {
-		err = errors.New("Error on exec 'insertIntoGameStatistics' statment: " + err.Error())
+		err = errors.New("Error on exec 'insertIntoGameStatistics' statement: " + err.Error())
 	}
 	return err
 }
@@ -191,7 +191,7 @@ insert into "current_login" (
 func (db *DB) UpsertIntoCurrentLogin(userId UserId, authorizationToken string) (err error) {
 	_, err = stmtInsertIntoCurrentLogin.Exec(userId, authorizationToken)
 	if err != nil {
-		err = errors.New("Error on exec 'InsertIntoGameStatistics' statment: " + err.Error())
+		err = errors.New("Error on exec 'InsertIntoGameStatistics' statement: " + err.Error())
 	}
 	return err
 }
@@ -223,7 +223,7 @@ offset
 func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation []PublicUserInformation, err error) {
 	defer func() {
 		if err != nil {
-			err = errors.New("Error on exec 'SelectLeaderBoard' statment: " + err.Error())
+			err = errors.New("Error on exec 'SelectLeaderBoard' statement: " + err.Error())
 		}
 	}()
 	rows, err := stmtSelectLeaderBoard.Query(limit, offset)
@@ -274,7 +274,7 @@ func (db *DB) SelectUserByLogin(login string) (userInformation PublicUserInforma
 		&userInformation.GamesPlayed,
 		&userInformation.Wins,
 	); err != nil {
-		err = errors.New("Error on exec 'SelectUserByLogin' statment: " + err.Error())
+		err = errors.New("Error on exec 'SelectUserByLogin' statement: " + err.Error())
 	}
 	return
 }
@@ -304,7 +304,7 @@ func (db *DB) SelectUserIdByLoginPasswordHash(login string, passwordHash string)
 			err = nil
 			// exist == false as default.
 		} else {
-			err = errors.New("Error on exec 'SelectUserIdByLoginPasswordHash' statment: " + err.Error())
+			err = errors.New("Error on exec 'SelectUserIdByLoginPasswordHash' statement: " + err.Error())
 		}
 	} else {
 		exist = true
@@ -326,15 +326,15 @@ where
 func (db *DB) DropUsersSession(authorizationToken string) (err error) {
 	_, err = stmtDropUsersSession.Exec(authorizationToken)
 	if err != nil {
-		err = errors.New("Error on exec 'dropUsersSession' statment: " + err.Error())
+		err = errors.New("Error on exec 'dropUsersSession' statement: " + err.Error())
 	}
 	return err
 }
 
-var stmtUpdateUsersAvatarBySid *sql.Stmt
+var stmtUpdateUsersAvatarByLogin *sql.Stmt
 
 func init() {
-	stmtUpdateUsersAvatarBySid = must(Db.Prepare(`
+	stmtUpdateUsersAvatarByLogin = must(Db.Prepare(`
 update
     "user"
 set
@@ -342,19 +342,57 @@ set
 from
     "current_login"
 where
-    "current_login"."authorization_token" = $1 and
-    "current_login"."user_id" = "user"."id"
+    "user"."login" = $1
 ;    `))
 }
 
-func (db *DB) UpdateUsersAvatarBySid(authorizationToken string, avatarAddres string) (err error) {
-	result, err := stmtUpdateUsersAvatarBySid.Exec(authorizationToken, avatarAddres)
+func (db *DB) UpdateUsersAvatarByLogin(login string, avatarAddress string) (err error) {
+	result, err := stmtUpdateUsersAvatarByLogin.Exec(login, avatarAddress)
 	if err != nil {
-		err = errors.New("Error on exec 'updateUsersAvatarBySid' statment: " + err.Error())
+		err = errors.New("Error on exec 'UpdateUsersAvatarByLogin' statement: " + err.Error())
 		return
 	}
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
 		err = errors.New("user unknown")
+	}
+	return
+}
+
+var stmtSelectUserLoginBySessionId *sql.Stmt
+
+func init() {
+	stmtSelectUserLoginBySessionId = must(Db.Prepare(`
+select 	
+	"user"."id",
+	"user"."login",
+	"user"."avatar_address",
+	"user"."disposable",
+	"user"."last_login_time"
+from 
+	"user", "current_login"
+where
+	"current_login"."authorization_token" = $1 and
+	"current_login"."user_id" = "user"."id"
+;    `))
+}
+
+func (db *DB) SelectUserBySessionId(authorizationToken string) (exist bool, user User, err error) {
+	err = stmtSelectUserLoginBySessionId.QueryRow(authorizationToken).Scan(
+		&user.Id,
+		&user.Login,
+		&user.AvatarAddress,
+		&user.Disposable,
+		&user.LastLoginTime,
+	)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			err = nil
+			// exist == false as default.
+		} else {
+			err = errors.New("Error on exec 'SelectUserBySid' statment: " + err.Error())
+		}
+	} else {
+		exist = true
 	}
 	return
 }
