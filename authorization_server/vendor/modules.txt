@@ -1,0 +1,7 @@
+# github.com/lib/pq v1.0.0
+github.com/lib/pq
+github.com/lib/pq/oid
+# github.com/pkg/errors v0.8.0
+github.com/pkg/errors
+# github.com/yosuke-furukawa/json5 v0.1.1
+github.com/yosuke-furukawa/json5/encoding/json5
