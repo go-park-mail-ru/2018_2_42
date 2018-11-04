@@ -56,6 +56,34 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//get SessionId from cookies
+		cookie, err := r.Cookie("SessionId")
+		if err != nil || cookie.Value == "" {
+			http.HandlerFunc(ErrorNotAuthorized).ServeHTTP(w, r)
+			return
+		}
+		exist, err := accessor.Db.CheckAuthToken(cookie.Value)
+		if err != nil {
+			log.Print(err)
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(types.ServerResponse{
+					Status:  http.StatusText(http.StatusInternalServerError),
+					Message: "database_error",
+				})
+			}).ServeHTTP(w, r)
+			return
+		}
+		if !exist {
+			http.HandlerFunc(ErrorNotAuthorized).ServeHTTP(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 const defaultAvatarUrl = "/images/default.png"
 
 // RegistrationRegular godoc
@@ -503,30 +531,13 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	//get SessionId from cookies
 	cookie, err := r.Cookie("SessionId")
-	if err != nil || cookie.Value == "" {
-		log.Print(err)
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(types.ServerResponse{
-			Status:  http.StatusText(http.StatusForbidden),
-			Message: "unauthorized_user",
-		})
-		return
-	}
-	exist, user, err := accessor.Db.SelectUserBySessionId(cookie.Value)
+	_, user, err := accessor.Db.SelectUserBySessionId(cookie.Value)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "cannot_create_file",
-		})
-		return
-	}
-	if !exist {
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(types.ServerResponse{
-			Status:  http.StatusText(http.StatusForbidden),
-			Message: "unauthorized_user",
 		})
 		return
 	}
@@ -590,5 +601,14 @@ func ErrorRequiredField(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(types.ServerResponse{
 		Status:  http.StatusText(http.StatusBadRequest),
 		Message: "field_'temporary'_required",
+	})
+}
+
+func ErrorNotAuthorized(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.WriteHeader(http.StatusForbidden)
+	json.NewEncoder(w).Encode(types.ServerResponse{
+		Status:  http.StatusText(http.StatusForbidden),
+		Message: "unauthorized_user",
 	})
 }

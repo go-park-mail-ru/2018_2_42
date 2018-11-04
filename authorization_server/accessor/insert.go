@@ -396,3 +396,29 @@ func (db *DB) SelectUserBySessionId(authorizationToken string) (exist bool, user
 	}
 	return
 }
+
+var stmtCheckAuthToken *sql.Stmt
+
+func init() {
+	stmtCheckAuthToken = must(Db.Prepare(`
+select 	
+	true
+from 
+	"current_login"
+where
+	"current_login"."authorization_token" = $1
+;    `))
+}
+
+func (db *DB) CheckAuthToken(authorizationToken string) (exist bool, err error) {
+	err = stmtCheckAuthToken.QueryRow(authorizationToken).Scan(&exist)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			err = nil
+			// exist == false as default.
+		} else {
+			err = errors.New("Error on exec 'CheckAuthToken' statment: " + err.Error())
+		}
+	}
+	return
+}

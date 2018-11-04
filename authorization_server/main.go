@@ -68,7 +68,7 @@ func main() {
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodPost:
-				handlers.SetAvatar(w, r)
+				handlers.AuthMiddleware(http.HandlerFunc(handlers.SetAvatar)).ServeHTTP(w, r)
 			case http.MethodOptions:
 				return
 			default:
