@@ -3,13 +3,19 @@ package main
 import (
 	"authorization_server/accessor"
 	"authorization_server/handlers"
-	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
+func init() {
+	log.SetReportCaller(true)
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
+}
+
 func main() {
-	http.Handle("/api/v1/user", handlers.CORSMiddleware(
+	http.Handle("/api/v1/user", handlers.CommonMiddleware(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodGet:
@@ -37,7 +43,7 @@ func main() {
 		})))
 
 	// получить всех пользователей для доски лидеров
-	http.Handle("/api/v1/users", handlers.CORSMiddleware(
+	http.Handle("/api/v1/users", handlers.CommonMiddleware(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// setupResponse(w, r)
 			switch r.Method {
@@ -50,7 +56,7 @@ func main() {
 			}
 		})))
 
-	http.Handle("/api/v1/session", handlers.CORSMiddleware(
+	http.Handle("/api/v1/session", handlers.CommonMiddleware(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodPost:
@@ -64,7 +70,7 @@ func main() {
 			}
 		})))
 
-	http.Handle("/api/v1/avatar", handlers.CORSMiddleware(
+	http.Handle("/api/v1/avatar", handlers.CommonMiddleware(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodPost:
@@ -76,8 +82,8 @@ func main() {
 			}
 		})))
 
-	fmt.Println("starting server at :8080")
-	err := http.ListenAndServe(":8080", nil)
+	log.Info("starting server at :8080")
+	err := http.ListenAndServe(":8081", nil)
 	if err != nil {
 		log.Fatal("failed to start server at :8080 : " + err.Error())
 	}

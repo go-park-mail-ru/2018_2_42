@@ -12,9 +12,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"net/http"
 	"os"
@@ -47,12 +46,17 @@ func randomToken() string {
 	return string(result)
 }
 
-func CORSMiddleware(next http.Handler) http.Handler {
+func CommonMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 		next.ServeHTTP(w, r)
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error("Recovered in CommonMiddlware: ", r)
+			}
+		}()
 	})
 }
 
@@ -61,12 +65,13 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		//get SessionId from cookies
 		cookie, err := r.Cookie("SessionId")
 		if err != nil || cookie.Value == "" {
+			log.Info("Cannot get cookie or it is empty", err)
 			http.HandlerFunc(ErrorNotAuthorized).ServeHTTP(w, r)
 			return
 		}
 		exist, err := accessor.Db.CheckAuthToken(cookie.Value)
 		if err != nil {
-			log.Print(err)
+			log.Error(err)
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 				json.NewEncoder(w).Encode(types.ServerResponse{
@@ -106,6 +111,7 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	registrationInfo := types.NewUserRegistration{}
 	err := json.NewDecoder(r.Body).Decode(&registrationInfo)
 	if err != nil {
+		log.Info("Cannot parse request json: ", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusBadRequest),
@@ -140,7 +146,7 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		} else {
-			log.Print(err)
+			log.Error(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(types.ServerResponse{
 				Status:  http.StatusText(http.StatusInternalServerError),
@@ -151,7 +157,7 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	}
 	err = accessor.Db.InsertIntoRegularLoginInformation(userId, sha256hash(registrationInfo.Password))
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
@@ -161,7 +167,7 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	}
 	err = accessor.Db.InsertIntoGameStatistics(userId, 0, 0)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
@@ -173,7 +179,7 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	authorizationToken := randomToken()
 	err = accessor.Db.UpsertIntoCurrentLogin(userId, authorizationToken)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
@@ -217,6 +223,7 @@ func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
 	registrationInfo := types.NewUserRegistration{}
 	err := json.NewDecoder(r.Body).Decode(&registrationInfo)
 	if err != nil {
+		log.Info("cannot parse request json: ", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusBadRequest),
@@ -243,7 +250,7 @@ func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		} else {
-			log.Print(err)
+			log.Error(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(types.ServerResponse{
 				Status:  http.StatusText(http.StatusInternalServerError),
@@ -256,7 +263,7 @@ func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
 	authorizationToken := randomToken()
 	err = accessor.Db.UpsertIntoCurrentLogin(userId, authorizationToken)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
@@ -316,7 +323,7 @@ func LeaderBoard(w http.ResponseWriter, r *http.Request) {
 
 	LeaderBoard, err := accessor.Db.SelectLeaderBoard(limit, offset)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
@@ -376,7 +383,7 @@ func UserProfile(w http.ResponseWriter, r *http.Request) {
 
 	userProfile, err := accessor.Db.SelectUserByLogin(login)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
@@ -409,6 +416,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	registrationInfo := types.NewUserRegistration{}
 	err := json.NewDecoder(r.Body).Decode(&registrationInfo)
 	if err != nil {
+		log.Info("Cannot parse request json", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusBadRequest),
@@ -418,7 +426,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 	exists, userId, err := accessor.Db.SelectUserIdByLoginPasswordHash(registrationInfo.Login, sha256hash(registrationInfo.Password))
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
@@ -430,7 +438,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		authorizationToken := randomToken()
 		err = accessor.Db.UpsertIntoCurrentLogin(userId, authorizationToken)
 		if err != nil {
-			log.Print(err)
+			log.Error(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(types.ServerResponse{
 				Status:  http.StatusText(http.StatusInternalServerError),
@@ -474,7 +482,7 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	//get sid from cookies
 	inCookie, err := r.Cookie("SessionId")
 	if err != nil {
-		log.Print(err)
+		log.Info(err)
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusUnauthorized),
@@ -484,7 +492,7 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	}
 	err = accessor.Db.DropUsersSession(inCookie.Value)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusNotFound),
@@ -533,18 +541,18 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("SessionId")
 	_, user, err := accessor.Db.SelectUserBySessionId(cookie.Value)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
-			Message: "cannot_create_file",
+			Message: "database_error",
 		})
 		return
 	}
 	r.ParseMultipartForm(0)
 	file, handler, err := r.FormFile("avatar")
 	if err != nil {
-		fmt.Println(err)
+		log.Info(err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusBadRequest),
@@ -557,7 +565,7 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	fileName := user.Login + filepath.Ext(handler.Filename)
 	f, err := os.Create(mediaRoot + "/images/" + fileName)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("Cannot create folder or file: ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
@@ -569,7 +577,7 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	//put avatar path to db
 	err = accessor.Db.UpdateUsersAvatarByLogin(user.Login, "/media/images/" + fileName)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),

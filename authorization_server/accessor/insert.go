@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	_ "github.com/lib/pq"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"reflect"
 )
 
