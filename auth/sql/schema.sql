@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS "users" (
 );
 
 CREATE TABLE IF NOT EXISTS "game_statistics" (
-  "id"           SERIAL PRIMARY KEY,
   "user_id"      INTEGER NOT NULL UNIQUE REFERENCES "users" ("id") ON DELETE CASCADE,
   "games_played" INTEGER NOT NULL, 
   "wins"         INTEGER NOT NULL

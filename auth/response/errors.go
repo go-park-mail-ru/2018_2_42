@@ -85,3 +85,23 @@ func ErrorNotUniqLogin(ctx *fasthttp.RequestCtx) {
 	buf, _ := errorResp.MarshalJSON()
 	ctx.SetBody(buf)
 }
+
+func ErrorEmptyLoginField(ctx *fasthttp.RequestCtx) {
+	ctx.SetStatusCode(fasthttp.StatusUnprocessableEntity) // 422 Unprocessable Entity
+	errorResp := models.ServerResponse{
+		Status:  "422 Unprocessable Entity",
+		Message: "empty_login_field",
+	}
+	buf, _ := errorResp.MarshalJSON()
+	ctx.SetBody(buf)
+}
+
+func ErrorUserNotFound(ctx *fasthttp.RequestCtx) {
+	ctx.SetStatusCode(fasthttp.StatusUnprocessableEntity) // 422 Unprocessable Entity
+	errorResp := models.ServerResponse{
+		Status:  "404 Not Found",
+		Message: "user_not_found",
+	}
+	buf, _ := errorResp.MarshalJSON()
+	ctx.SetBody(buf)
+}
