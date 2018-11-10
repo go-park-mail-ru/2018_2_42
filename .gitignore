@@ -17,3 +17,7 @@ authorization_server/authorization_server
 
 # Docker conteiners results 
 *.tar
+
+# binary files
+auth/auth
+*.DS_Store
