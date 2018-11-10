@@ -7,12 +7,13 @@ import (
 
 type UserID int32
 
+//easyjson:json
 type User struct {
-	ID            UserID    // primary key through which other fields are connected.
-	Login         string    // visible to other players
-	AvatarAddress string    // address relative to the root of the site: '/media/name-src32.ext'
-	LastLoginTime time.Time // timestamp
-	Disposable    bool      // temporary or not
+	ID            UserID    `json:"id"`
+	Login         string    `json:"login"`
+	PasswordHash  string    `json:"password_hash"`
+	AvatarAddress string    `json:"avatar_address"`
+	LastLoginTime time.Time `json:"last_login_time"`
 }
 
 //easyjson:json
@@ -21,31 +22,23 @@ type UserRegistration struct {
 	Password string `json:"password"`
 }
 
-type RegularLoginInfo struct {
-	UserID       UserID
-	PasswordHash string // just SHA (TODO: sault)
-}
-
+//easyjson:json
 type UserGameStatistic struct {
-	UserID      UserID
-	GamesPlayed int32 // count of games
-	Wins        int   // count of winnings
+	UserID      UserID `json:"user_id"`
+	GamesPlayed int32  `json:"games_played"`
+	Wins        int    `json:"wins"`
 }
 
+//easyjson:json
 type CurrentLogin struct {
-	UserID             UserID
-	AuthorizationToken sql.NullString //just coolkie
-	CSRFToken          sql.NullString
+	UserID             UserID         `json:"user_id"`
+	AuthorizationToken sql.NullString `json:"authorization_token"`
 }
 
-type PublicUserInfo struct {
+//easyjson:json
+type UserInfo struct {
 	Login         string `json:"login"`
 	AvatarAddress string `json:"avatarAddress"`
 	GamesPlayed   int    `json:"gamesPlayed"`
 	Wins          int    `json:"wins"`
-}
-
-type ServerResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
 }

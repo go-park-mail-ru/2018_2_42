@@ -1,27 +1,24 @@
-begin transaction;
+BEGIN TRANSACTION;
 
-create table if not exists "user" (
-  "id"              serial4 primary key,
-  "login"           text      not null unique,
-  "password_hash"   text not null,
-  "avatar_address"  text      not null, -- адрес относительно корня сайта: '/media/name-src32.ext'
-  "disposable"      boolean   not null,
-  "last_login_time" timestamp not null
+CREATE TABLE IF NOT EXISTS "users" (
+  "id"              SERIAL   PRIMARY KEY,
+  "login"           TEXT      NOT NULL UNIQUE,
+  "password_hash"   TEXT      NOT NULL,
+  "avatar_address"  TEXT      NOT NULL, -- адрес относительно корня сайта: '/media/name-src32.ext'`
+  "last_login_time" TIMESTAMP NOT NULL
 );
 
-create table if not exists "game_statistics" (
-  "id"           serial4 primary key,
-  "user_id"      integer not null unique references "user" ("id") on delete cascade,
-  "games_played" integer not null, -- количество начатых игр
-  "wins"         integer not null -- количество доведённых до победного конца
+CREATE TABLE IF NOT EXISTS "game_statistics" (
+  "id"           SERIAL PRIMARY KEY,
+  "user_id"      INTEGER NOT NULL UNIQUE REFERENCES "users" ("id") ON DELETE CASCADE,
+  "games_played" INTEGER NOT NULL, 
+  "wins"         INTEGER NOT NULL
 );
 
-create table if not exists "current_login" (
-  "id"                  serial4 primary key,
-  "user_id"             integer not null unique references "user" ("id") on delete cascade,
-  -- токен авторицации, ставящийся как cookie пользователю
-  "authorization_token" text null unique
+CREATE TABLE IF NOT EXISTS "current_login" (
+  "user_id"             INTEGER NOT NULL UNIQUE REFERENCES "users" ("id") ON DELETE CASCADE,
+  "authorization_token" TEXT    NULL UNIQUE -- токен авторицации, ставящийся как cookie пользователю
 );
 
-commit;
+COMMIT;
 
