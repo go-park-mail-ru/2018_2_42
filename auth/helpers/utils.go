@@ -30,9 +30,9 @@ func Sha256hash(password string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-// func init() {
-// 	rand.Seed(time.Now().Unix())
-// }
+func init() {
+	rand.Seed(time.Now().Unix())
+}
 
 func RandomToken() string {
 	cookieChars := []byte("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+_")
