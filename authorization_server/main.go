@@ -3,8 +3,9 @@ package main
 import (
 	"authorization_server/accessor"
 	"authorization_server/handlers"
-	log "github.com/sirupsen/logrus"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func init() {
@@ -15,32 +16,30 @@ func init() {
 }
 
 func main() {
-	http.Handle("/api/v1/user", handlers.CommonMiddleware(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case http.MethodGet:
-				handlers.UserProfile(w, r)
-			case http.MethodOptions:
-				return
-			case http.MethodPost:
-				params := r.URL.Query()
-				if isTemporary, ok := params["temporary"]; ok {
-					if len(isTemporary) == 1 {
-						switch isTemporary[0] {
-						case "true":
-							handlers.RegistrationTemporary(w, r)
-							return
-						case "false":
-							handlers.RegistrationRegular(w, r)
-							return
-						}
-					}
-				}
-				handlers.ErrorRequiredField(w, r)
-			default:
-				handlers.ErrorMethodNotAllowed(w, r)
-			}
-		})))
+	// http.Handle("/api/v1/user", handlers.CommonMiddleware(
+	// 	http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 		switch r.Method {
+	// 		case http.MethodGet:
+	// 			handlers.UserProfile(w, r)
+	// 		case http.MethodPost:
+	// 			params := r.URL.Query()
+	// 			if isTemporary, ok := params["temporary"]; ok {
+	// 				if len(isTemporary) == 1 {
+	// 					switch isTemporary[0] {
+	// 					case "true":
+	// 						handlers.RegistrationTemporary(w, r)
+	// 						return
+	// 					case "false":
+	// 						handlers.RegistrationRegular(w, r)
+	// 						return
+	// 					}
+	// 				}
+	// 			}
+	// 			handlers.ErrorRequiredField(w, r)
+	// 		default:
+	// 			handlers.ErrorMethodNotAllowed(w, r)
+	// 		}
+	// 	})))
 
 	// получить всех пользователей для доски лидеров
 	http.Handle("/api/v1/users", handlers.CommonMiddleware(

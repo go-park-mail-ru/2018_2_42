@@ -13,7 +13,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
-	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"net/http"
 	"os"
@@ -21,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func sha256hash(password string) string {
@@ -91,50 +92,37 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 const defaultAvatarUrl = "/images/default.png"
 
-// RegistrationRegular godoc
-// @Summary Regular user registration.
-// @Description Registrate users with password and statistics.
-// @Tags user
-// @Accept application/json
-// @Produce application/json
-// @Param registrationInfo body types.NewUserRegistration true "login password"
-// @Success 201 {object} types.ServerResponse
-// @Failure 400 {object} types.ServerResponse
-// @Failure 409 {object} types.ServerResponse
-// @Failure 422 {object} types.ServerResponse
-// @Failure 500 {object} types.ServerResponse
-// @Router /api/v1/user?temporary=false [post]
 func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	w.Header().Set("Content-Type", "application/json")
+	// defer r.Body.Close()
+	// w.Header().Set("Content-Type", "application/json")
 
-	registrationInfo := types.NewUserRegistration{}
-	err := json.NewDecoder(r.Body).Decode(&registrationInfo)
-	if err != nil {
-		log.Info("Cannot parse request json: ", err)
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(types.ServerResponse{
-			Status:  http.StatusText(http.StatusBadRequest),
-			Message: "invalid_request_format",
-		})
-		return
-	}
-	if registrationInfo.Login == "" {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		json.NewEncoder(w).Encode(types.ServerResponse{
-			Status:  http.StatusText(http.StatusUnprocessableEntity),
-			Message: "empty_login",
-		})
-		return
-	}
-	if len(registrationInfo.Password) < 5 {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		json.NewEncoder(w).Encode(types.ServerResponse{
-			Status:  http.StatusText(http.StatusUnprocessableEntity),
-			Message: "weak_password",
-		})
-		return
-	}
+	// registrationInfo := types.NewUserRegistration{}
+	// err := json.NewDecoder(r.Body).Decode(&registrationInfo)
+	// if err != nil {
+	// 	log.Info("Cannot parse request json: ", err)
+	// 	w.WriteHeader(http.StatusBadRequest)
+	// 	json.NewEncoder(w).Encode(types.ServerResponse{
+	// 		Status:  http.StatusText(http.StatusBadRequest),
+	// 		Message: "invalid_request_format",
+	// 	})
+	// 	return
+	// }
+	// if registrationInfo.Login == "" {
+	// 	w.WriteHeader(http.StatusUnprocessableEntity)
+	// 	json.NewEncoder(w).Encode(types.ServerResponse{
+	// 		Status:  http.StatusText(http.StatusUnprocessableEntity),
+	// 		Message: "empty_login",
+	// 	})
+	// 	return
+	// }
+	// if len(registrationInfo.Password) < 5 {
+	// 	w.WriteHeader(http.StatusUnprocessableEntity)
+	// 	json.NewEncoder(w).Encode(types.ServerResponse{
+	// 		Status:  http.StatusText(http.StatusUnprocessableEntity),
+	// 		Message: "weak_password",
+	// 	})
+	// 	return
+	// }
 	userId, err := accessor.Db.InsertIntoUser(registrationInfo.Login, defaultAvatarUrl, false)
 	if err != nil {
 		if strings.Contains(err.Error(),
@@ -575,7 +563,7 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 	//put avatar path to db
-	err = accessor.Db.UpdateUsersAvatarByLogin(user.Login, "/media/images/" + fileName)
+	err = accessor.Db.UpdateUsersAvatarByLogin(user.Login, "/media/images/"+fileName)
 	if err != nil {
 		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -594,29 +582,29 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func ErrorMethodNotAllowed(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	w.WriteHeader(http.StatusMethodNotAllowed)
-	json.NewEncoder(w).Encode(types.ServerResponse{
-		Status:  http.StatusText(http.StatusMethodNotAllowed),
-		Message: "this_method_is_not_supported",
-	})
-}
+// func ErrorMethodNotAllowed(w http.ResponseWriter, r *http.Request) {
+// 	defer r.Body.Close()
+// 	w.WriteHeader(http.StatusMethodNotAllowed)
+// 	json.NewEncoder(w).Encode(types.ServerResponse{
+// 		Status:  http.StatusText(http.StatusMethodNotAllowed),
+// 		Message: "this_method_is_not_supported",
+// 	})
+// }
 
-func ErrorRequiredField(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	w.WriteHeader(http.StatusBadRequest)
-	json.NewEncoder(w).Encode(types.ServerResponse{
-		Status:  http.StatusText(http.StatusBadRequest),
-		Message: "field_'temporary'_required",
-	})
-}
+// func ErrorRequiredField(w http.ResponseWriter, r *http.Request) {
+// 	defer r.Body.Close()
+// 	w.WriteHeader(http.StatusBadRequest)
+// 	json.NewEncoder(w).Encode(types.ServerResponse{
+// 		Status:  http.StatusText(http.StatusBadRequest),
+// 		Message: "field_'temporary'_required",
+// 	})
+// }
 
-func ErrorNotAuthorized(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	w.WriteHeader(http.StatusForbidden)
-	json.NewEncoder(w).Encode(types.ServerResponse{
-		Status:  http.StatusText(http.StatusForbidden),
-		Message: "unauthorized_user",
-	})
-}
+// func ErrorNotAuthorized(w http.ResponseWriter, r *http.Request) {
+// 	defer r.Body.Close()
+// 	w.WriteHeader(http.StatusForbidden)
+// 	json.NewEncoder(w).Encode(types.ServerResponse{
+// 		Status:  http.StatusText(http.StatusForbidden),
+// 		Message: "unauthorized_user",
+// 	})
+// }
