@@ -97,10 +97,20 @@ func ErrorEmptyLoginField(ctx *fasthttp.RequestCtx) {
 }
 
 func ErrorUserNotFound(ctx *fasthttp.RequestCtx) {
-	ctx.SetStatusCode(fasthttp.StatusUnprocessableEntity) // 422 Unprocessable Entity
+	ctx.SetStatusCode(fasthttp.StatusNotFound) // 404 Not Found
 	errorResp := models.ServerResponse{
 		Status:  "404 Not Found",
 		Message: "user_not_found",
+	}
+	buf, _ := errorResp.MarshalJSON()
+	ctx.SetBody(buf)
+}
+
+func ErrorSessionNotFound(ctx *fasthttp.RequestCtx) {
+	ctx.SetStatusCode(fasthttp.StatusNotFound) // 404 Not Found
+	errorResp := models.ServerResponse{
+		Status:  "404 Not Found",
+		Message: "session_not_found",
 	}
 	buf, _ := errorResp.MarshalJSON()
 	ctx.SetBody(buf)

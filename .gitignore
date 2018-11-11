@@ -19,5 +19,5 @@ authorization_server/authorization_server
 *.tar
 
 # binary files
-auth/auth
-*.DS_Store
+auth
+*.DS_Store 

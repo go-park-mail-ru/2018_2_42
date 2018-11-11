@@ -2,7 +2,6 @@ package database
 
 import (
 	"auth/models"
-	"fmt"
 	"log"
 )
 
@@ -56,11 +55,50 @@ func SelectLeaderBoard(limit, offset string) (*models.Users, error) {
 			&user.GamesPlayed,
 			&user.Wins,
 		); err != nil {
-			fmt.Println(err)
+			log.Println(err)
+			return nil, err
 		}
 		users = append(users, &user)
 	}
 
 	CommitTransaction(tx)
 	return &users, nil
+}
+
+func SelectUserIdByLoginPasswordHash(login, passwordHash string) (userID models.UserID, err error) {
+	tx := StartTransaction()
+	defer tx.Rollback()
+
+	rows := tx.QueryRow(` 
+		SELECT "id"
+		FROM users
+		WHERE "login" = $1 AND "password_hash" = $2`,
+		&login, &passwordHash)
+
+	err = rows.Scan(&userID)
+	if err != nil {
+		log.Println(err)
+		return userID, err
+	}
+
+	CommitTransaction(tx)
+	return
+}
+
+func DropUserSession(cookie string) error {
+	tx := StartTransaction()
+	defer tx.Rollback()
+
+	query := `
+		DELETE 
+		FROM "current_login"
+		WHERE "authorization_token" = $1`
+
+	if _, err := tx.Exec(query, cookie); err != nil {
+		log.Println(err)
+		return err
+	}
+
+	CommitTransaction(tx)
+	return nil
 }
