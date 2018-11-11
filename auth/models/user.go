@@ -42,3 +42,6 @@ type UserInfo struct {
 	GamesPlayed   int    `json:"gamesPlayed"`
 	Wins          int    `json:"wins"`
 }
+
+//easyjson:json
+type Users []*UserInfo
