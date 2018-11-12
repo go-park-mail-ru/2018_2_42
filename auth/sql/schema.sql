@@ -1,7 +1,7 @@
 BEGIN TRANSACTION;
 
 CREATE TABLE IF NOT EXISTS "users" (
-  "id"              SERIAL   PRIMARY KEY,
+  "id"              SERIAL    PRIMARY KEY,
   "login"           TEXT      NOT NULL UNIQUE,
   "password_hash"   TEXT      NOT NULL,
   "avatar_address"  TEXT      NOT NULL, -- адрес относительно корня сайта: '/media/name-src32.ext'`
