@@ -7,6 +7,7 @@ import (
 	"auth/helpers"
 	"log"
 	"time"
+
 	"github.com/jackc/pgx"
 	"github.com/valyala/fasthttp"
 )
@@ -60,12 +61,12 @@ func CreateUser(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	cookie := fasthttp.Cookie{}
-	cookie.SetHTTPOnly(true)
-	cookie.SetSecure(true)
-	cookie.SetExpire(time.Now().AddDate(0, 1, 0))
-	cookie.SetValue(authorizationToken)
+	var cookie fasthttp.Cookie
 	cookie.SetKey("SessionId")
+	cookie.SetValue(authorizationToken)
+	cookie.SetHTTPOnly(true)
+	// cookie.SetSecure(true)
+	cookie.SetExpire(time.Now().AddDate(0, 1, 0))
 	ctx.Response.Header.SetCookie(&cookie)
 	response.SuccessRegistration(ctx)
 }

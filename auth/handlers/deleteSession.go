@@ -3,6 +3,7 @@ package handlers
 import (
 	"auth/database"
 	"auth/response"
+	"log"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -10,11 +11,11 @@ import (
 
 func DeleteSession(ctx *fasthttp.RequestCtx) {
 	recievedCookie := ctx.Request.Header.Cookie("SessionId")
-	// log.Println(string(recievedCookie))
-	// if len(recievedCookie) == 0 {
-	// 	response.ErrorNotAuthorized(ctx)
-	// 	return
-	// }
+	log.Println(string(recievedCookie))
+	if len(recievedCookie) == 0 {
+		response.ErrorNotAuthorized(ctx)
+		return
+	}
 	err := database.DropUserSession(string(recievedCookie))
 	if err != nil {
 		response.ErrorSessionNotFound(ctx)
