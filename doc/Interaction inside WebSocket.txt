@@ -21,14 +21,14 @@
 |синих персонажей.
 |(координаты на фронте                                                |приходит с валидной кукой
 |всегда в нижней части экрана      |Upgrade соединения до websocket,
-|  0123456                         |помечает как '2', объединяет с
-| 0RRRRRRR  red                    |пользователем '1', создаёт игровую|запрашивает у пользователя
-| 1RRRRRRR                         |комнату.                          |конфигурацию синих
-| 2.......                                                            |персонажей
-| 3.......                                                            |
-| 4BBBBBBB  blue <--                                                  |
-| 5BBBBBBB                                                            |отправляет конфигурацию
-|передаются [x, y]                                                    |персонажей
+|                                  |помечает как '2', объединяет с
+| ...,40,41  red                   |пользователем '1', создаёт игровую|запрашивает у пользователя
+| .........                        |комнату.                          |конфигурацию синих
+| .........                                                           |персонажей
+| .........                                                           |
+| .........  blue <--                                                 |
+| 0,1,2,...                                                           |отправляет конфигурацию
+|передаются [positionId]                                              |персонажей
 |                                  |валидирует, отзеркаливает,
 |                                  |загружает в карту
 |
@@ -137,12 +137,10 @@
 
 Типы данных, как они передаются между сервером и клиентом.
 Координаты:
-    [x, y]
-    x number 0 <= x <= 6
-    y number 0 <= y <= 5
+    positionId number 0 <= x <= 41
 
 Оружие "weapon"
-  string "stone", "scissors", "paper", "flag"
+  string "rock", "scissors", "paper", "flag"
 
 Персонаж
   Цвет "color"
@@ -168,15 +166,13 @@
 содержит информацию сервера, но без оружия соперника, если он ещё не принимал участие,
 и повёрнутую для второго игрока
 
-for x := 0; x<=6; x++{                        //   0123456
-    for y := 0; y <= 5; y++{                  // 0 ABCDEFG
-        user2Map[x][y] = serverMap[6-x][5-y]  // 1 HIJKLMN
-    }                                         // 2 OPQRSTU
-}                                             // 3 utsrqpo
-                                              // 4 nmlkjih
-                                              // 5 gfedcba
-
-
+for x := 0; x<=6; x++{                        
+  for y := 0; y <= 5; y++{                  
+        user2Map[positionId] = serverMap[41 - positionId]  
+    }                                         
+}                                             
+                                              
+                                              
 Список handler's, которые необходимо реализовать:
 На сервере по http:
     Установление соединения к игре, протокол http, /game/v1/instance1
@@ -186,7 +182,7 @@ for x := 0; x<=6; x++{                        //   0123456
     "upload_map"
 
     Движение персонажа
-    "go_to_cage"
+    "go_to_cell"
 
 На клиенте внутри websocket:
     Загрузка всей карты
@@ -211,157 +207,92 @@ for x := 0; x<=6; x++{                        //   0123456
 Примеры всех запросов, эталон формата.
 
 "upload_map"
-[
-  [
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
-  ],
-  [
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
-  ],
-  [
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
-  ],
-  [
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
-  ],
-  [
-    {
-       "color": "blue",
-       "weapon": "scissors"
-    },
-    {
-      "color": "blue",
-      "weapon": "stone"
-    },
-    {
-      "color": "blue",
-      "weapon": "stone"
-    },
-    {
-      "color": "blue",
-      "weapon": "scissors"
-    },
-    {
-      "color": "blue",
-      "weapon": "paper"
-    },
-    {
-      "color": "blue",
-      "weapon": "stone"
-    },
-    {
-      "color": "blue",
-      "weapon": "paper"
-    }
-  ],
-  [
-    {
-      "color": "blue",
-      "weapon": "paper"
-    },
-    {
-      "color": "blue",
-      "weapon": "scissors"
-    },
-    {
-      "color": "blue",
-      "weapon": "paper"
-    },
-    {
-      "color": "blue",
-      "weapon": "stone"
-    },
-    {
-      "color": "blue",
-      "weapon": "flag"
-    },
-    {
-      "color": "blue",
-      "weapon": "scissors"
-    },
-    {
-      "color": "blue",
-      "weapon": "paper"
-    }
-  ]
-]
-
-"go_to_cage"
 {
-  "from": [5, 5]
-  "to": [6, 4]
+    "color": "blue",
+    "weapons": [
+      "scissors", //левый нижний
+      "rock",
+      "rock",
+      "scissors",
+      "paper",
+      "rock",
+      "paper",  //правый нижний
+      "paper",  //левый верхний
+      "scissors",
+      "paper",
+      "rock",
+      "flag",
+      "scissors",
+      "paper" //правый верхний
+  ]
+}
+
+"go_to_cell"
+{
+  "from": positionId
+  "to": positionId
 }
 
 "download_map"
 [
   [
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null //оружие еще не спалилось
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": "rock" // оружие спалилось
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     }
   ],
   [
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     },
     {
-       "color": "red"
+       "color": "red",
+       "weapon": null
     }
   ],
   [
@@ -389,11 +320,11 @@ for x := 0; x<=6; x++{                        //   0123456
     },
     {
       "color": "blue",
-      "weapon": "stone"
+      "weapon": "rock"
     },
     {
       "color": "blue",
-      "weapon": "stone"
+      "weapon": "rock"
     },
     {
       "color": "blue",
@@ -405,7 +336,7 @@ for x := 0; x<=6; x++{                        //   0123456
     },
     {
       "color": "blue",
-      "weapon": "stone"
+      "weapon": "rock"
     },
     {
       "color": "blue",
@@ -413,10 +344,7 @@ for x := 0; x<=6; x++{                        //   0123456
     }
   ],
   [
-    {
-      "color": "blue",
-      "weapon": "paper"
-    },
+    null, //убит
     {
       "color": "blue",
       "weapon": "scissors"
@@ -427,7 +355,7 @@ for x := 0; x<=6; x++{                        //   0123456
     },
     {
       "color": "blue",
-      "weapon": "stone"
+      "weapon": "rock"
     },
     {
       "color": "blue",
@@ -449,25 +377,25 @@ true
 
 "move_character"
 {
-  "from": [5, 5]
-  "to": [6, 4]
+  "from": positionId
+  "to": positionId
 }
 
 "attack"
 {
   "winner": {
-    "coordinates": [4, 5],
+    "coordinates": positionId,
     "weapon": "scissors"
   },
   "loser": {
-    "coordinates": [4, 6],
+    "coordinates": positionId,
     "weapon": "paper"
   }
 }
 
 "add_weapon"
 {
-  "coordinates": [4, 6],
+  "coordinates": positionId,
   "weapon": "paper"
 }
 
