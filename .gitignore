@@ -10,7 +10,6 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
-authorization_server/authorization_server
 
 # Development environment settings
 .idea
@@ -19,5 +18,5 @@ authorization_server/authorization_server
 *.tar
 
 # binary files
-auth
+auth/auth
 *.DS_Store 

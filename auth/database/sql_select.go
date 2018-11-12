@@ -26,6 +26,27 @@ func SelectUserByLogin(login string) (userProfile models.UserInfo, err error) {
 	return
 }
 
+func SelectUserBySession(token string) (userProfile models.User, err error) {
+	tx := StartTransaction()
+	defer tx.Rollback()
+
+	rows := tx.QueryRow(` 
+		SELECT u."login", u."password_hash", u."avatar_address", u."last_login_time", 
+		FROM users u
+		JOIN current_login c
+		ON u."id" = c."user_id" AND c."authorization_token" = $1`,
+		&token)
+
+	err = rows.Scan(&userProfile.Login, &userProfile.PasswordHash, &userProfile.AvatarAddress, &userProfile.LastLoginTime)
+	if err != nil {
+		log.Println(err)
+		return userProfile, err
+	}
+
+	CommitTransaction(tx)
+	return
+}
+
 func SelectLeaderBoard(limit, offset string) (*models.Users, error) {
 	tx := StartTransaction()
 	defer tx.Rollback()

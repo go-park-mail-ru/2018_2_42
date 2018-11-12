@@ -1,26 +1,32 @@
 package database
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/jackc/pgx"
 )
 
-var db *pgx.ConnPool
+var (
+	db        *pgx.ConnPool
+	pgxConfig pgx.ConnConfig
+)
 
-var pgxConfig = pgx.ConnConfig{
-	User:              "postgres",
-	Password:          "postgres",
-	Host:              "localhost",
-	Port:              5432,
-	Database:          "postgres",
-	TLSConfig:         nil,
-	UseFallbackTLS:    false,
-	FallbackTLSConfig: nil,
+const (
+	schema = "./sql/schema.sql"
+)
+
+func init() {
+	configFile, _ := os.Open("./config/postgres.json")
+	defer configFile.Close()
+	decoder := json.NewDecoder(configFile)
+	err := decoder.Decode(&pgxConfig)
+	if err != nil {
+		log.Println(err)
+	}
 }
-
-const schema = "./sql/schema.sql"
 
 // Connect creates database connection.
 func Connect() {

@@ -4,41 +4,40 @@ import (
 	"auth/database"
 	"auth/helpers"
 	"auth/models"
-	"auth/response"
 	"log"
 	"time"
 
 	"github.com/valyala/fasthttp"
 )
 
+// CreateSession creates a session for user.
 func CreateSession(ctx *fasthttp.RequestCtx) {
 	var userRegistreation models.UserRegistration
 	err := userRegistreation.UnmarshalJSON(ctx.PostBody())
 	if err != nil {
 		log.Printf("Cannot parse request json: %s", err)
-		ctx.SetStatusCode(fasthttp.StatusBadRequest) // 400 Bad Request
-		response.ErrorInvalidRequestFormat(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusBadRequest, "400 Bad Request", "invalid_request_format")
 		return
 	}
 
 	userID, err := database.SelectUserIdByLoginPasswordHash(userRegistreation.Login, helpers.Sha256hash(userRegistreation.Password))
 	if err != nil {
-		response.ErrorUserNotFound(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusNotFound, "404 Not Found", "user_not_found")
 	}
 
 	authorizationToken := helpers.RandomToken()
 	err = database.InsertIntoCurrentLogin(userID, authorizationToken)
 	if err != nil {
-		response.ErrorUserNotFound(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusNotFound, "404 Not Found", "user_not_found")
 		return
 	}
 
 	cookie := fasthttp.Cookie{}
 	cookie.SetHTTPOnly(true)
-	cookie.SetSecure(true)
 	cookie.SetExpire(time.Now().AddDate(0, 1, 0))
 	cookie.SetValue(authorizationToken)
 	cookie.SetKey("SessionId")
+
 	ctx.Response.Header.SetCookie(&cookie)
-	response.SuccessLogin(ctx)
+	helpers.ServerResponse(ctx, fasthttp.StatusOK, "200 OK", "successful_sign_in")
 }

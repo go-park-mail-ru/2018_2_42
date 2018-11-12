@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"auth/response"
 	"auth/database"
 	"auth/models"
 	"auth/helpers"
@@ -13,51 +12,48 @@ import (
 )
 
 const (
-	defaultAvatarUrl = "/images/default.png"
+	defaultAvatarURL = "/images/default.png"
 )
 
+// CreateUser creates a new user.
 func CreateUser(ctx *fasthttp.RequestCtx) {
 	var userRegistreation models.UserRegistration
 	err := userRegistreation.UnmarshalJSON(ctx.PostBody())
 	if err != nil {
 		log.Printf("Cannot parse request json: %s", err)
-		ctx.SetStatusCode(fasthttp.StatusBadRequest) // 400 Bad Request
-		response.ErrorInvalidRequestFormat(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusBadRequest, "400 Bad Request", "invalid_request_format")
 		return
 	}
 
 	if len(userRegistreation.Login) == 0 {
-		response.ErrorBadLogin(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusUnprocessableEntity, "422 Unprocessable Entity", "empty_login")
 		return
 	}
 	if len(userRegistreation.Password) < 5 {
-		response.ErrorWeakPassword(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusUnprocessableEntity, "422 Unprocessable Entity", "weak_password")
 		return
 	}
 
-	userID, err := database.InsertIntoUser(userRegistreation.Login, helpers.Sha256hash(userRegistreation.Password), defaultAvatarUrl, false)
+	userID, err := database.InsertIntoUser(userRegistreation.Login, helpers.Sha256hash(userRegistreation.Password), defaultAvatarURL, false)
 	if err != nil {
 		if _, ok := err.(pgx.PgError); ok {
-			response.ErrorNotUniqLogin(ctx)
+			helpers.ServerResponse(ctx, fasthttp.StatusUnprocessableEntity, "422 Unprocessable Entity", "login_is_not_unique")
 			return
 		}
-		log.Println(err)
-		response.ErrorDataBase(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusInternalServerError, "500 Internal Server", "database_error")
 		return
 	}
 
 	err = database.InsertIntoGameStatistics(userID, 0, 0)
 	if err != nil {
-		log.Println(err)
-		response.ErrorDataBase(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusInternalServerError, "500 Internal Server", "database_error")
 		return
 	}
 
 	authorizationToken := helpers.RandomToken()
 	err = database.InsertIntoCurrentLogin(userID, authorizationToken)
 	if err != nil {
-		log.Println(err)
-		response.ErrorDataBase(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusInternalServerError, "500 Internal Server", "database_error")
 		return
 	}
 
@@ -65,8 +61,8 @@ func CreateUser(ctx *fasthttp.RequestCtx) {
 	cookie.SetKey("SessionId")
 	cookie.SetValue(authorizationToken)
 	cookie.SetHTTPOnly(true)
-	// cookie.SetSecure(true)
 	cookie.SetExpire(time.Now().AddDate(0, 1, 0))
+	
 	ctx.Response.Header.SetCookie(&cookie)
-	response.SuccessRegistration(ctx)
+	helpers.ServerResponse(ctx, fasthttp.StatusOK, "200 OK", "successful_sign_up")
 }

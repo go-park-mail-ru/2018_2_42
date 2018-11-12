@@ -2,20 +2,21 @@ package handlers
 
 import (
 	"auth/database"
-	"auth/response"
+	"auth/helpers"
 
 	"github.com/valyala/fasthttp"
 )
 
+// GetUser returns a user's profile.
 func GetUser(ctx *fasthttp.RequestCtx) {
 	login := string(ctx.FormValue("login"))
 	if len(login) == 0 {
-		response.ErrorEmptyLoginField(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusUnprocessableEntity, "422 Unprocessable Entity", "empty_login_field")
 	}
 
 	userProfile, err := database.SelectUserByLogin(login)
 	if err != nil {
-		response.ErrorUserNotFound(ctx)
+		helpers.ServerResponse(ctx, fasthttp.StatusNotFound, "404 Not Found", "user_not_found")
 		return
 	}
 
