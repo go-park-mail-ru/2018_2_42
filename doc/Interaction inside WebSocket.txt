@@ -22,13 +22,13 @@
 |(координаты на фронте                                                |приходит с валидной кукой
 |всегда в нижней части экрана      |Upgrade соединения до websocket,
 |                                  |помечает как '2', объединяет с
-| ...,40,41  red                   |пользователем '1', создаёт игровую|запрашивает у пользователя
-| .........                        |комнату.                          |конфигурацию синих
-| .........                                                           |персонажей
-| .........                                                           |
-| .........  blue <--                                                 |
-| 0,1,2,...                                                           |отправляет конфигурацию
-|передаются [positionId]                                              |персонажей
+|  0  1  2  3  4  5  6 red         |пользователем '1', создаёт игровую|запрашивает у пользователя
+|  7  8  9 10 11 12 13             |комнату.                          |конфигурацию синих
+| 14 15 16 17 18 19 20                                                |персонажей
+| 21 22 23 24 25 26 27                                                |
+| 28 29 30 31 32 33 34 blue <--                                       |
+| 35 36 37 38 39 40 41                                                |отправляет конфигурацию
+|передаётсяю positionId, число                                        |персонажей
 |                                  |валидирует, отзеркаливает,
 |                                  |загружает в карту
 |
@@ -182,7 +182,7 @@ for x := 0; x<=6; x++{
     "upload_map"
 
     Движение персонажа
-    "go_to_cell"
+    "attempt_go_to_cell"
 
 На клиенте внутри websocket:
     Загрузка всей карты
@@ -227,7 +227,7 @@ for x := 0; x<=6; x++{
   ]
 }
 
-"go_to_cell"
+"attempt_go_to_cell"
 {
   "from": positionId
   "to": positionId
@@ -235,141 +235,129 @@ for x := 0; x<=6; x++{
 
 "download_map"
 [
-  [
-    {
-       "color": "red",
-       "weapon": null //оружие еще не спалилось
-    },
-    {
-       "color": "red",
-       "weapon": "rock" // оружие спалилось
-    },
-    {
-       "color": "red",
-       "weapon": null
-    },
-    {
-       "color": "red",
-       "weapon": null
-    },
-    {
-       "color": "red",
-       "weapon": null
-    },
-    {
-       "color": "red",
-       "weapon": null
-    },
-    {
-       "color": "red",
-       "weapon": null
-    }
-  ],
-  [
-    {
-       "color": "red",
-       "weapon": null
-    },
-    {
-       "color": "red",
-       "weapon": null
-    },
-    {
-       "color": "red",
-       "weapon": null
-    },
-    {
-       "color": "red",
-       "weapon": null
-    },
-    {
-       "color": "red",
-       "weapon": null
-    },
-    {
-       "color": "red",
-       "weapon": null
-    },
-    {
-       "color": "red",
-       "weapon": null
-    }
-  ],
-  [
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
-  ],
-  [
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
-  ],
-  [
-    {
-       "color": "blue",
-       "weapon": "scissors"
-    },
-    {
-      "color": "blue",
-      "weapon": "rock"
-    },
-    {
-      "color": "blue",
-      "weapon": "rock"
-    },
-    {
-      "color": "blue",
-      "weapon": "scissors"
-    },
-    {
-      "color": "blue",
-      "weapon": "paper"
-    },
-    {
-      "color": "blue",
-      "weapon": "rock"
-    },
-    {
-      "color": "blue",
-      "weapon": "paper"
-    }
-  ],
-  [
-    null, //убит
-    {
-      "color": "blue",
-      "weapon": "scissors"
-    },
-    {
-      "color": "blue",
-      "weapon": "paper"
-    },
-    {
-      "color": "blue",
-      "weapon": "rock"
-    },
-    {
-      "color": "blue",
-      "weapon": "flag"
-    },
-    {
-      "color": "blue",
-      "weapon": "scissors"
-    },
-    {
-      "color": "blue",
-      "weapon": "paper"
-    }
-  ]
+  {
+     "color": "red",
+     "weapon": null //оружие еще не спалилось
+  },
+  {
+     "color": "red",
+     "weapon": "rock" // оружие спалилось
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  {
+     "color": "red",
+     "weapon": null
+  },
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+     "color": "blue",
+     "weapon": "scissors"
+  },
+  {
+    "color": "blue",
+    "weapon": "rock"
+  },
+  {
+    "color": "blue",
+    "weapon": "rock"
+  },
+  {
+    "color": "blue",
+    "weapon": "scissors"
+  },
+  {
+    "color": "blue",
+    "weapon": "paper"
+  },
+  {
+    "color": "blue",
+    "weapon": "rock"
+  },
+  {
+    "color": "blue",
+    "weapon": "paper"
+  }
+  null, // убит
+  {
+    "color": "blue",
+    "weapon": "scissors"
+  },
+  {
+    "color": "blue",
+    "weapon": "paper"
+  },
+  {
+    "color": "blue",
+    "weapon": "rock"
+  },
+  {
+    "color": "blue",
+    "weapon": "flag"
+  },
+  {
+    "color": "blue",
+    "weapon": "scissors"
+  },
+  {
+    "color": "blue",
+    "weapon": "paper"
+  }
 ]
 
 "your_turn"
