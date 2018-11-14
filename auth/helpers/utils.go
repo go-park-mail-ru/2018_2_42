@@ -11,12 +11,14 @@ func init() {
 	rand.Seed(time.Now().Unix())
 }
 
+// Sha256hash creates sha hash.
 func Sha256hash(password string) string {
 	hasher := sha256.New()
 	hasher.Write([]byte(password))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
+// RandomToken creates a random token.
 func RandomToken() string {
 	cookieChars := []byte("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+_")
 	result := make([]byte, 20)

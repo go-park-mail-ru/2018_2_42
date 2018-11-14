@@ -6,6 +6,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// ServerResponse makes an error and then send this response.
 func ServerResponse(ctx *fasthttp.RequestCtx, statusCode int, statusText, message string) {
 	ctx.SetStatusCode(statusCode)
 	errorResp := models.ServerResponse{

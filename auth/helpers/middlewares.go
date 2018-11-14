@@ -7,6 +7,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// CommonHandlerMiddleware adds logs, content-type and recover after panics.
 func CommonHandlerMiddleware(handler fasthttp.RequestHandler) fasthttp.RequestHandler {
 	return fasthttp.RequestHandler(func(ctx *fasthttp.RequestCtx) {
 		defer func() {
