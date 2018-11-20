@@ -3,6 +3,7 @@ package rooms_manager
 import (
 	"github.com/go-park-mail-ru/2018_2_42/game_server/user_connection"
 	"github.com/gorilla/websocket"
+	"log"
 )
 
 // адрес игровой комнаты, уникальный для данного сервера.
@@ -19,7 +20,7 @@ type GameToСonnect struct {
 	Role RoleId
 }
 
-// Оружие персонажа. Нападение на персонажа со флагом вызывает конец игры. Флаг не может на падать.
+// Оружие персонажа. Нападение на персонажа со флагом вызывает конец игры. Флаг не может нападать.
 type Weapon string // ∈ ["stone", "scissors", "paper", "flag"]
 
 // Персонаж в представлении сервера.
@@ -74,11 +75,15 @@ func NewRoom(player0, player1 *user_connection.UserConnection) (room *Room) {
 	go room.WebSocketReader(1)
 	go room.WebSocketWriter(1)
 	go room.GameMaster()
+
+	log.Printf("Room created with User0 = '%s', User1 = '%s'", room.User0.Token, room.User1.Token)
 	return
 }
 
 // восстанавливает соединение и перезавускает
 func (r *Room) Reconnect(user *user_connection.UserConnection, role RoleId) {
+	log.Printf("Reconnect sessioni = '%s' as role %d", user.Token, role)
+
 	if role == 0 {
 		if r.User0 != nil {
 			r.User0.Connection.Close()
@@ -237,19 +242,25 @@ func (rm *RoomsManager) MaintainConnections(connectionQueue <-chan *user_connect
 		game, ok := rm.ProcessedPlayers[connection.Token]
 		if ok {
 			// восстановление соединения
+			log.Printf("Reconnect user = '%s' in role %d to room %d", connection.Token, game.Role, game.Room)
+
 			rm.Rooms[game.Room].Reconnect(connection, game.Role)
 		} else {
 			if waitingConnection == nil {
+				log.Printf("Set connection user = '%s' as waiting", connection.Token)
+
 				waitingConnection = connection
 			} else {
 				// добавление в новую комнату 2-х соединений и регистрация пользователей,
 				// как находящихся в процессе игры.
+				log.Printf("create room %d user0 = '%s', user1 = '%s'", rm.RoomNumber, waitingConnection.Token, connection.Token)
+
 				rm.Rooms[rm.RoomNumber] = NewRoom(waitingConnection, connection)
-				rm.ProcessedPlayers[waitingConnection.Login] = GameToСonnect{
+				rm.ProcessedPlayers[waitingConnection.Token] = GameToСonnect{
 					Room: rm.RoomNumber,
 					Role: 0,
 				}
-				rm.ProcessedPlayers[connection.Login] = GameToСonnect{
+				rm.ProcessedPlayers[connection.Token] = GameToСonnect{
 					Room: rm.RoomNumber,
 					Role: 1,
 				}
@@ -258,4 +269,5 @@ func (rm *RoomsManager) MaintainConnections(connectionQueue <-chan *user_connect
 			}
 		}
 	}
+	return
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/go-park-mail-ru/2018_2_42/authorization_server/types"
 	"github.com/go-park-mail-ru/2018_2_42/game_server/user_connection"
 	"github.com/gorilla/websocket"
+	"log"
 	"net/http"
 	"time"
 )
@@ -33,43 +34,24 @@ func NewConnectionUpgrader() (cu *ConnectionUpgrader) {
 }
 
 // Handler, входная точка для http соединения.
+// Запускается в разных горутинах, только читает из класса.
 func (cu *ConnectionUpgrader) HttpEntryPoint(w http.ResponseWriter, r *http.Request) {
-	// Проверяет login/password из get params.
-	params := r.URL.Query()
-	var login string
-	{
-		l, ok := params["login"]
-		if ok && len(l) == 1 {
-			login = l[0]
-		} else {
-			response, _ := json.Marshal(types.ServerResponse{
-				Status:  "forbidden",
-				Message: "missing_login",
-			})
-			w.Write(response)
-			w.WriteHeader(http.StatusForbidden)
-			r.Body.Close()
-			return
-		}
-	}
-	var token string
-	{
-		l, ok := params["token"]
-		if ok && len(l) == 1 {
-			token = l[0]
-		} else {
-			response, _ := json.Marshal(types.ServerResponse{
-				Status:  "forbidden",
-				Message: "missing_session_cookie",
-			})
-			w.Write(response)
-			w.WriteHeader(http.StatusForbidden)
-			r.Body.Close()
-			return
-		}
+	log.Printf("New connection: %#v", r)
+	// Проверяет sessionid из cookie.
+	sessionId, err := r.Cookie("sessionid")
+	if err != nil {
+		response, _ := json.Marshal(types.ServerResponse{
+			Status:  "forbidden",
+			Message: "missing_sessionid_cookie",
+		})
+		w.WriteHeader(http.StatusForbidden)
+		w.Write(response)
+		r.Body.Close()
+		return
 	}
 	// проверяет наличие этого пользователя в базе
 	// TODO: реализовать проверку пользователя. Для этого нужен handler в authorisation server
+	login := "Anon"
 
 	// Меняет протокол.
 	WSConnection, err := cu.upgrader.Upgrade(w, r, nil)
@@ -78,17 +60,16 @@ func (cu *ConnectionUpgrader) HttpEntryPoint(w http.ResponseWriter, r *http.Requ
 			Status:  "bad request",
 			Message: "error on upgrade connection: " + err.Error(),
 		})
-		w.Write(response)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write(response)
 		r.Body.Close()
 		return
 	}
-
 	connection := &user_connection.UserConnection{
 		Login:      login,
-		Token:      token,
+		Token:      sessionId.Value,
 		Connection: WSConnection,
 	}
-
 	cu.QueueToGame <- connection
+	return
 }

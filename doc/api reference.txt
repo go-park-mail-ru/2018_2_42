@@ -197,7 +197,7 @@ answer
 
 Подключение и вход в игру
 /game/v1/instance1
-Требуется быть авторизованным и прийти за WebSocket соединением:
+Требуется быть авторизованным c кукой sessionid и прийти за WebSocket соединением:
     HTTP/1.1 101 Switching Protocols
     Upgrade: websocket 
     Connection: Upgrade
