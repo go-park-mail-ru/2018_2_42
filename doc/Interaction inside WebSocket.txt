@@ -12,7 +12,7 @@
 |           игрок 0                |            Сервер                |           игрок 1                |
 |Приходит с валидной кукой
                                    |Upgrade соединения до websocket,
-                                   |вставка в очередь с пометкой '1'.
+                                   |вставка в очередь с пометкой '0'.
                                    |
                                    |Ждёт загрузки карты от
                                    |пользователя. Ждёт 1-го игрока
@@ -21,8 +21,8 @@
 |синих персонажей.
 |(координаты на фронте                                                |Приходит с валидной кукой.
 |всегда в нижней части экрана      |Upgrade соединения до websocket,
-|                                  |помечает как '2', объединяет с
-|  0  1  2  3  4  5  6 red         |пользователем '1', создаёт игровую|запрашивает у пользователя
+|                                  |помечает как '1', объединяет с
+|  0  1  2  3  4  5  6 red         |пользователем '0', создаёт игровую|запрашивает у пользователя
 |  7  8  9 10 11 12 13             |комнату.                          |конфигурацию синих
 | 14 15 16 17 18 19 20                                                |персонажей
 | 21 22 23 24 25 26 27                                                |
@@ -207,11 +207,13 @@ for x := 0; x<=6; x++{
     Конец игры, отображение торжествующего персонажа с флагом соперника.
     "gameover"
 
-
+Стоит отметить, что всё работает на событиях. Клиент и сервер просто применяют изменения,
+не должны хранить состояние (эмулировать стек вызовов) и возвращать результат.
 Примеры всех запросов, эталон формата.
 
-"upload_map"
 {
+  "method": "upload_map",
+  "parameter": {
     "color": "blue",
     "weapons": [
       "scissors", //левый нижний
@@ -228,173 +230,190 @@ for x := 0; x<=6; x++{
       "flag",
       "scissors",
       "paper" //правый верхний
+    ]
+  }
+}
+
+{
+  "method": "attempt_go_to_cell",
+  "parameter": {
+    "from": positionId
+    "to": positionId
+  }
+}
+
+{
+  "method": "download_map",
+  "parameter": [
+    {
+       "color": "red",
+       "weapon": null //оружие еще не спалилось
+    },
+    {
+       "color": "red",
+       "weapon": "rock" // оружие спалилось
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    {
+       "color": "red",
+       "weapon": null
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    {
+       "color": "blue",
+       "weapon": "scissors"
+    },
+    {
+      "color": "blue",
+      "weapon": "rock"
+    },
+    {
+      "color": "blue",
+      "weapon": "rock"
+    },
+    {
+      "color": "blue",
+      "weapon": "scissors"
+    },
+    {
+      "color": "blue",
+      "weapon": "paper"
+    },
+    {
+      "color": "blue",
+      "weapon": "rock"
+    },
+    {
+      "color": "blue",
+      "weapon": "paper"
+    }
+    null, // убит
+    {
+      "color": "blue",
+      "weapon": "scissors"
+    },
+    {
+      "color": "blue",
+      "weapon": "paper"
+    },
+    {
+      "color": "blue",
+      "weapon": "rock"
+    },
+    {
+      "color": "blue",
+      "weapon": "flag"
+    },
+    {
+      "color": "blue",
+      "weapon": "scissors"
+    },
+    {
+      "color": "blue",
+      "weapon": "paper"
+    }
   ]
 }
 
-"attempt_go_to_cell"
 {
-  "from": positionId
-  "to": positionId
+  "method": "your_rival",
+  "parameter": "admin"
 }
 
-"download_map"
-[
-  {
-     "color": "red",
-     "weapon": null //оружие еще не спалилось
-  },
-  {
-     "color": "red",
-     "weapon": "rock" // оружие спалилось
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  {
-     "color": "red",
-     "weapon": null
-  },
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
-  null,
-  {
-     "color": "blue",
-     "weapon": "scissors"
-  },
-  {
-    "color": "blue",
-    "weapon": "rock"
-  },
-  {
-    "color": "blue",
-    "weapon": "rock"
-  },
-  {
-    "color": "blue",
-    "weapon": "scissors"
-  },
-  {
-    "color": "blue",
-    "weapon": "paper"
-  },
-  {
-    "color": "blue",
-    "weapon": "rock"
-  },
-  {
-    "color": "blue",
-    "weapon": "paper"
-  }
-  null, // убит
-  {
-    "color": "blue",
-    "weapon": "scissors"
-  },
-  {
-    "color": "blue",
-    "weapon": "paper"
-  },
-  {
-    "color": "blue",
-    "weapon": "rock"
-  },
-  {
-    "color": "blue",
-    "weapon": "flag"
-  },
-  {
-    "color": "blue",
-    "weapon": "scissors"
-  },
-  {
-    "color": "blue",
-    "weapon": "paper"
-  }
-]
-
-"your_rival"
-"admin"
-
-"your_turn"
-true
-
-"move_character"
 {
-  "from": positionId
-  "to": positionId
+  "method": "your_turn",
+  "parameter": true
 }
 
-"attack"
 {
-  "winner": {
-    "coordinates": positionId,
-    "weapon": "scissors"
-  },
-  "loser": {
+  "method": "move_character",
+  "parameter": {
+    "from": positionId,
+    "to": positionId
+  }
+}
+
+{
+  "method": "attack",
+  "parameter": {
+    "winner": {
+      "coordinates": positionId,
+      "weapon": "scissors"
+    },
+    "loser": {
+      "coordinates": positionId,
+      "weapon": "paper"
+    }
+  }
+}
+
+{
+  "method": "add_weapon",
+  "parameter": {
     "coordinates": positionId,
     "weapon": "paper"
   }
 }
 
-"add_weapon"
 {
-  "coordinates": positionId,
-  "weapon": "paper"
-}
-
-"gameover"
-{
-  "winner_color": "blue"
+  "method": "gameover",
+  "parameter": {
+    "winner_color": "blue"
+  }
 }
