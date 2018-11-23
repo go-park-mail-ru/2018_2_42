@@ -1,4 +1,4 @@
-package websocket_testing_page
+package websocket_test_page
 
 import "net/http"
 
