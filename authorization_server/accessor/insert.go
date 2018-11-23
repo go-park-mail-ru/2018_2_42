@@ -4,13 +4,14 @@
 package accessor
 
 import (
-	"authorization_server/config"
 	"database/sql"
 	"errors"
 	"fmt"
 	_ "github.com/lib/pq"
 	"log"
 	"reflect"
+
+	"github.com/go-park-mail-ru/2018_2_42/authorization_server/config"
 )
 
 // этот паттерн называется proxy - обёртка вокруг пучка соединений к базе данных

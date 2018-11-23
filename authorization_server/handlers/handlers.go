@@ -7,8 +7,6 @@
 package handlers
 
 import (
-	"authorization_server/accessor"
-	"authorization_server/types"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -22,6 +20,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-park-mail-ru/2018_2_42/authorization_server/accessor"
+	"github.com/go-park-mail-ru/2018_2_42/authorization_server/types"
 )
 
 func sha256hash(password string) string {
@@ -556,7 +557,7 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 	//put avatar path to db
-	err = accessor.Db.UpdateUsersAvatarByLogin(user.Login, "/media/images/" + fileName)
+	err = accessor.Db.UpdateUsersAvatarByLogin(user.Login, "/media/images/"+fileName)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
