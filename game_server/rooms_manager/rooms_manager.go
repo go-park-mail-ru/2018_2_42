@@ -1,6 +1,7 @@
 package rooms_manager
 
 import (
+	"errors"
 	"github.com/go-park-mail-ru/2018_2_42/game_server/user_connection"
 	"github.com/gorilla/websocket"
 	"log"
@@ -23,6 +24,18 @@ type GameToСonnect struct {
 // Оружие персонажа. Нападение на персонажа со флагом вызывает конец игры. Флаг не может нападать.
 type Weapon string // ∈ ["stone", "scissors", "paper", "flag"]
 
+func NewWeapon(key string) (weapon *Weapon, err error) {
+	switch key {
+	case "stone":
+	case "scissors":
+	case "paper":
+	case "flag":
+	default:
+		err = errors.New("'" + key + "' ∉ ['stone', 'scissors', 'paper', 'flag']")
+	}
+	return
+}
+
 // Персонаж в представлении сервера.
 type Сharacter struct {
 	Role         RoleId
@@ -40,10 +53,15 @@ type Сharacter struct {
 type Map [42]*Сharacter
 
 type Room struct {
+	// соединения с пользователями, могут подменятся во время игры
 	User0 *user_connection.UserConnection // array index == RoleId
 	User1 *user_connection.UserConnection
-	Map   Map
-
+	// основные состояния игры.
+	Map                     Map
+	User0UploadedCharacters bool
+	User1UploadedCharacters bool
+	UserTurnNumber          RoleId
+	// переменные для синхронизации мастера игры и читающих/пишуших горутин
 	User0From             chan []byte
 	User0To               chan []byte
 	User0IsAvailableRead  chan struct{}
@@ -56,10 +74,10 @@ type Room struct {
 
 func NewRoom(player0, player1 *user_connection.UserConnection) (room *Room) {
 	room = &Room{
-		Map: [42]*Сharacter{},
-
 		User0: player0,
 		User1: player1,
+
+		Map: [42]*Сharacter{},
 
 		User0From:             make(chan []byte, 5),
 		User0To:               make(chan []byte, 5),
@@ -185,11 +203,6 @@ func (r *Room) WebSocketWriter(role RoleId) {
 		}
 		r.User1.Connection.Close()
 	}
-	return
-}
-
-func (r *Room) GameMaster() {
-	// TODO: вся логика игры тут.
 	return
 }
 
