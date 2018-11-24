@@ -62,3 +62,5 @@ type AddWeapon struct {
 type Gameover struct {
 	WinnerColor string `json:"winner_color"`
 }
+
+type ErrorMessage string

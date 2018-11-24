@@ -36,6 +36,19 @@ func NewWeapon(key string) (weapon *Weapon, err error) {
 	return
 }
 
+// true если превосходит передаваемое значение, false
+func (w *Weapon) IsExceed(rival Weapon) (exceed bool) {
+	switch *w {
+	case "stone":
+		exceed = rival == "scissors"
+	case "scissors":
+		exceed = rival == "paper"
+	case "paper":
+		exceed = rival == "stone"
+	}
+	return
+}
+
 // Персонаж в представлении сервера.
 type Сharacter struct {
 	Role         RoleId
@@ -95,6 +108,24 @@ func NewRoom(player0, player1 *user_connection.UserConnection) (room *Room) {
 	go room.GameMaster()
 
 	log.Printf("Room created with User0 = '%s', User1 = '%s'", room.User0.Token, room.User1.Token)
+	return
+}
+
+// Деструктор комнаты.
+// отключение горутин, должно вызываться из game master.
+//    ╭─User0From─▶─╮      ╭─◀─User1From─╮
+// User0           GameMaster            User1
+//    ╰─User0To───◀─╯      ╰─▶─User1To───╯
+func (r *Room) StopRoom() {
+	close(r.User0IsAvailableRead)
+	close(r.User0IsAvailableWrite)
+	r.User0.Connection.Close()
+	close(r.User1IsAvailableRead)
+	close(r.User1IsAvailableWrite)
+	r.User1.Connection.Close()
+	close(r.User0To)
+	close(r.User1To)
+	log.Print("room with User0.Token='" + r.User0.Token + "', r.User1.Token='" + r.User1.Token + "' closed")
 	return
 }
 
