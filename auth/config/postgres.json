@@ -1,0 +1,10 @@
+{
+    "User": "postgres",
+    "Password": "postgres",
+    "Host": "localhost",
+    "Port": 5432,
+    "Database": "postgres",
+    "TLSConfig": null,
+    "UseFallbackTLS": false,
+    "FallbackTLSConfig": null
+}

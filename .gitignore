@@ -12,5 +12,11 @@
 *.out
 
 # Development environment settings
-*/.idea/*
+.idea
 
+# Docker conteiners results 
+*.tar
+
+# binary files
+auth/auth
+*.DS_Store 
