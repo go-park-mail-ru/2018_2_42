@@ -46,7 +46,7 @@ func main() {
 		os.Exit(1)
 	}
 	ConnPool := &accessor.ConnPool{ConnPool: *pool}
-	ConnPool.Close()
+	defer ConnPool.Close()
 
 	userHub := hub.Hub{
 		SendNewMessage: make(chan types.Message, 1000),
