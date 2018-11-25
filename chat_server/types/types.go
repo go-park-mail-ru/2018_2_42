@@ -19,7 +19,7 @@ type Message struct {
 	Reply     *Message `json:"reply"`         // пересылаемое сообщение, во вторую очередь
 	Time      string   `json:"time"`          // в формате iso-8601
 	Id        uint     `json:"id"`
-	IsHistory bool     `json:"is_history,omitempty"` // falsteб если посылает горутина получившая, true если из базы.
+	IsHistory bool     `json:"is_history"` // falsteб если посылает горутина получившая, true если из базы.
 }
 
 //easyjson:json

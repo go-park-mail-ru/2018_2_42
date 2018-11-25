@@ -15,7 +15,37 @@ type User struct {
 }
 
 type AllUsers struct {
-	sync.Map
+	syncMap sync.Map
+}
+
+// функции для починки типизации.
+func (au *AllUsers) Delete(key string) {
+	au.syncMap.Delete(key)
+	return
+}
+
+func (au *AllUsers) Load(key string) (value *User, ok bool) {
+	interfacedValue, ok := au.syncMap.Load(key)
+	value = interfacedValue.(*User)
+	return
+}
+
+func (au *AllUsers) LoadOrStore(key string, value *User) (actual *User, loaded bool) {
+	interfacedActual, loaded := au.syncMap.LoadOrStore(key, value)
+	actual = interfacedActual.(*User)
+	return
+}
+
+func (au *AllUsers) Range(f func(key string, value *User) bool) {
+	au.syncMap.Range(func(key, value interface{}) bool {
+		return f(key.(string), value.(*User))
+	})
+	return
+}
+
+func (au *AllUsers) Store(key string, value *User) {
+	au.syncMap.Store(key, value)
+	return
 }
 
 // демоны пользователя.
@@ -25,20 +55,21 @@ func (u *User) ListeningDemon() {
 	for {
 		_, message, err := u.Connection.ReadMessage()
 		if err != nil {
+			log.Printf("ListeningDemon ReadMessage error: %#v", err.Error())
 			break
 		}
 
 		var event types.Event
 		err = event.UnmarshalJSON(message)
 		if err != nil {
-			log.Print(err)
+			log.Printf("ListeningDemon UnmarshalJSON %#v %#v: ", string(message), err.Error())
 			continue
 		}
 		if event.Method == "send" {
 			messages := types.Messages{}
 			err = messages.UnmarshalJSON(event.Parameter)
 			if err != nil {
-				log.Print(err)
+				log.Printf("ListeningDemon UnmarshalJSON %#v %#v: ", string(event.Parameter), err.Error())
 				continue
 			}
 			for _, message := range messages {
@@ -51,7 +82,7 @@ func (u *User) ListeningDemon() {
 			historyRequest := types.HistoryRequest{}
 			err = historyRequest.UnmarshalJSON(event.Parameter)
 			if err != nil {
-				log.Print(err)
+				log.Printf("ListeningDemon UnmarshalJSON %#v %#v: ", string(event.Parameter), err.Error())
 				continue
 			}
 			historyRequest.To = &u.Login
@@ -66,8 +97,9 @@ func (u *User) ListeningDemon() {
 // слушает из канала и маршалит задачи
 func (u *User) WritingDemon() {
 	log.Print("start of '" + u.Login + "' WritingDemon")
-	for masages := range u.ToUser {
-		response, err := masages.MarshalJSON()
+	for messages := range u.ToUser {
+		log.Printf("WritingDemon of '%s': messages=%#v", u.Login, messages)
+		response, err := messages.MarshalJSON()
 		if err != nil {
 			log.Print(err)
 			continue

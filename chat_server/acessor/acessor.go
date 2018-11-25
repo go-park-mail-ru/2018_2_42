@@ -149,7 +149,7 @@ limit 50
 }
 
 func (cp *ConnPool) MassagesSelect(to *string, from *string, id uint) (messages types.Messages, err error) {
-	rows, err := cp.Query("massages_insert", &to, &from, &id)
+	rows, err := cp.Query("massages_select", &to, &from, &id)
 	if err != nil {
 		err = &Error{
 			Code:            http.StatusInternalServerError,

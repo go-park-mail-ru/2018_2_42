@@ -327,7 +327,7 @@ func easyjson6601e8cdEncodeGithubComGoParkMailRu2018242ChatServerTypes2(out *jwr
 		}
 		out.Uint(uint(in.Id))
 	}
-	if in.IsHistory {
+	{
 		const prefix string = ",\"is_history\":"
 		if first {
 			first = false

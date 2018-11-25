@@ -22,23 +22,30 @@ type Hub struct {
 	ConnPool *accessor.ConnPool
 }
 
+func logString(s *string) string {
+	if s != nil {
+		return "'" + *s + "'"
+	} else {
+		return "nil"
+	}
+}
+
 // вся логика
 func (h *Hub) HubWorker() {
 	for {
 		select {
 		case historyRequest := <-h.SendHistory:
-			log.Printf("HubWorker historyRequest: %#v", historyRequest)
+			log.Printf("HubWorker historyRequest: From=%s To=%s Before=%d ", logString(historyRequest.From), logString(historyRequest.To), historyRequest.Before)
 			messages, err := h.ConnPool.MassagesSelect(historyRequest.To, historyRequest.From, historyRequest.Before)
 			if err != nil {
 				log.Print("HubWorker historyRequest database err:" + err.Error())
 				continue
 			}
-			value, ok := h.AllUsers.Load(historyRequest.To)
+			user, ok := h.AllUsers.Load(*historyRequest.To)
 			if !ok {
-				log.Printf("HubWorker historyRequest no user: %#v", historyRequest)
+				log.Printf("HubWorker historyRequest no user: From %s, To %s. Before %d in %#v", logString(historyRequest.From), logString(historyRequest.To), historyRequest.Before, h.AllUsers)
 				continue
 			}
-			user := value.(*User)
 			user.ToUser <- messages
 		case newMessage := <-h.SendNewMessage:
 			log.Printf("HubWorker newMessage: %#v", newMessage)
@@ -50,23 +57,19 @@ func (h *Hub) HubWorker() {
 			}
 			newMessage.Id = id
 			newMessage.Time = now.Format(time.RFC3339)
-
 			if newMessage.To != nil {
-				value, ok := h.AllUsers.Load(newMessage.To)
+				user, ok := h.AllUsers.Load(*newMessage.To)
 				if !ok {
 					log.Printf("HubWorker newMessage: User not exist: %#v", newMessage)
 					continue
 				}
-				value.(*User).ToUser <- types.Messages{newMessage}
-
+				user.ToUser <- types.Messages{newMessage}
 			} else {
-				h.AllUsers.Range(func(key, value interface{}) bool {
-					user := value.(*User)
-					user.ToUser <- types.Messages{newMessage}
+				h.AllUsers.Range(func(key string, value *User) bool {
+					value.ToUser <- types.Messages{newMessage}
 					return true
 				})
 			}
-
 		case newUser := <-h.NewUser:
 			log.Printf("HubWorker newUser: %#v", newUser)
 			h.AllUsers.LoadOrStore(newUser.Login, newUser)
@@ -75,4 +78,5 @@ func (h *Hub) HubWorker() {
 			go newUser.WritingDemon()
 		}
 	}
+	return
 }
