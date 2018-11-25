@@ -28,6 +28,18 @@ type Messages []Message
 // "history"
 //easyjson:json
 type HistoryRequest struct {
-	From  *string `json:"from"`  // логин пользователя
-	After string  `json:"after"` // id последнего сообщения, которое не надо пересылать.
+	From   *string `json:"from"`   // логин пользователя
+	Before uint    `json:"before"` // id последнего сообщения, которое известно.
 }
+
+// Работа с "Before" параметром:
+// знал  указал  пришло
+//                1
+//                2
+//                3
+//                4
+// 5       5
+// 6
+// 7
+// 8
+// 9
