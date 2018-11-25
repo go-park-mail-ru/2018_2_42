@@ -29,6 +29,7 @@ type Messages []Message
 //easyjson:json
 type HistoryRequest struct {
 	From   *string `json:"from"`   // логин пользователя
+	To     *string `json:"-"`      // логин запрашивающего пользователя, на тороне сервера
 	Before uint    `json:"before"` // id последнего сообщения, которое известно.
 }
 

@@ -1,7 +1,6 @@
-package all_users
+package hub
 
 import (
-	"github.com/go-park-mail-ru/2018_2_42/chat_server/hub"
 	"github.com/go-park-mail-ru/2018_2_42/chat_server/types"
 	"github.com/gorilla/websocket"
 	"log"
@@ -12,7 +11,7 @@ type User struct {
 	Connection *websocket.Conn
 	Login      string
 	ToUser     chan types.Messages
-	Hub        *hub.Hub // для hub.SendHistory hub.SendNewMessage
+	Hub        *Hub // для hub.SendHistory hub.SendNewMessage
 }
 
 type AllUsers struct {
@@ -22,6 +21,7 @@ type AllUsers struct {
 // демоны пользователя.
 // слушает из сокета и парсит задачи
 func (u *User) ListeningDemon() {
+	log.Print("start of '" + u.Login + "' ListeningDemon")
 	for {
 		_, message, err := u.Connection.ReadMessage()
 		if err != nil {
@@ -42,6 +42,7 @@ func (u *User) ListeningDemon() {
 				continue
 			}
 			for _, message := range messages {
+				message.From = &u.Login
 				u.Hub.SendNewMessage <- message
 			}
 			continue
@@ -53,15 +54,30 @@ func (u *User) ListeningDemon() {
 				log.Print(err)
 				continue
 			}
+			historyRequest.To = &u.Login
 			u.Hub.SendHistory <- historyRequest
 			continue
 		}
 	}
 	// TODO: каскадное удаление.
-	log.Print("end of '" + u.Login + "'")
+	log.Print("end of '" + u.Login + "' ListeningDemon")
 }
 
 // слушает из канала и маршалит задачи
 func (u *User) WritingDemon() {
-
+	log.Print("start of '" + u.Login + "' WritingDemon")
+	for masages := range u.ToUser {
+		response, err := masages.MarshalJSON()
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		err = u.Connection.WriteMessage(websocket.TextMessage, response)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+	}
+	// TODO: каскадное удаление.
+	log.Print("end of '" + u.Login + "' WritingDemon")
 }

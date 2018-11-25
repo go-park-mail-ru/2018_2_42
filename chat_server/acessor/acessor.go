@@ -64,7 +64,7 @@ func (e *Error) Error() string {
 
 // создание таблиц
 func init() {
-	Prep.add(func(conn *pgx.Conn) (err error) {
+	Prep.addFirst(func(conn *pgx.Conn) (err error) {
 		// language=PostgreSQL
 		sql := `
 create table if not exists "massages"(
@@ -140,14 +140,15 @@ where
 	("to" = $1 and "from" = $2) or  
 	("to" = $1 and "from" = $2) and 
     "id" < $3
-order by "id";
-`
+order by "id" desc
+limit 50
+;`
 		_, err = conn.Prepare("massages_select", sql)
 		return
 	})
 }
 
-func (cp *ConnPool) MassagesSelect(to *string, from *string, id int) (messages types.Messages, err error) {
+func (cp *ConnPool) MassagesSelect(to *string, from *string, id uint) (messages types.Messages, err error) {
 	rows, err := cp.Query("massages_insert", &to, &from, &id)
 	if err != nil {
 		err = &Error{
