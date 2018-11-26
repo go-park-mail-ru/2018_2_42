@@ -13,8 +13,8 @@ type User struct {
 	AvatarAddress string    // адрес относительно корня сайта: '/media/name-src32.ext'
 	LastLoginTime time.Time // timestamp
 	Disposable    bool      /* Играет ли пользователь просто так, без sms и регистрации (и попадания
-	                        в таблицу рекордов). Такие пользователи создаются, когда входят в
-	                        игру с одним только именем, и удаляются при выходе из партии. */
+	   в таблицу рекордов). Такие пользователи создаются, когда входят в
+	   игру с одним только именем, и удаляются при выходе из партии. */
 }
 
 type RegularLoginInformation struct {
@@ -39,12 +39,4 @@ type CurrentLogin struct {
 	AuthorizationToken sql.NullString
 	// csrf token, проверяемый при приёме html форм при загрузке пользовательских данных.
 	CSRFToken sql.NullString
-}
-
-// Публичная информация пользователя
-type PublicUserInformation struct {
-	Login         string `json:"login"`
-	AvatarAddress string `json:"avatarAddress"`
-	GamesPlayed   int    `json:"gamesPlayed"`
-	Wins          int    `json:"wins"`
 }

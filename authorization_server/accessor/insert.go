@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/go-park-mail-ru/2018_2_42/authorization_server/types"
 	_ "github.com/lib/pq"
 	"log"
 	"reflect"
@@ -221,7 +222,7 @@ offset
 ;   `))
 }
 
-func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation []PublicUserInformation, err error) {
+func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation types.PublicUsersInformation, err error) {
 	defer func() {
 		if err != nil {
 			err = errors.New("Error on exec 'SelectLeaderBoard' statement: " + err.Error())
@@ -236,7 +237,7 @@ func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation []Publi
 		if err = rows.Err(); err != nil {
 			return
 		}
-		userInformation := PublicUserInformation{}
+		userInformation := types.PublicUserInformation{}
 		if err = rows.Scan(
 			&userInformation.Login,
 			&userInformation.AvatarAddress,
@@ -268,7 +269,7 @@ where
 ;   `))
 }
 
-func (db *DB) SelectUserByLogin(login string) (userInformation PublicUserInformation, err error) {
+func (db *DB) SelectUserByLogin(login string) (userInformation types.PublicUserInformation, err error) {
 	if err = stmtSelectUserByLogin.QueryRow(login).Scan(
 		&userInformation.Login,
 		&userInformation.AvatarAddress,

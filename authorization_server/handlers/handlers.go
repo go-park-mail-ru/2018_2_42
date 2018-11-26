@@ -9,9 +9,9 @@ package handlers
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -73,33 +73,38 @@ const defaultAvatarUrl = "/images/default.png"
 // @Failure 500 {object} types.ServerResponse
 // @Router /api/v1/user?temporary=false [post]
 func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
 
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	r.Body.Close()
 	registrationInfo := types.NewUserRegistration{}
-	err := json.NewDecoder(r.Body).Decode(&registrationInfo)
+	err = registrationInfo.UnmarshalJSON(bodyBytes)
+
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusBadRequest),
 			Message: "invalid_request_format",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	if registrationInfo.Login == "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusUnprocessableEntity),
 			Message: "empty_login",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	if len(registrationInfo.Password) < 5 {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusUnprocessableEntity),
 			Message: "weak_password",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	userId, err := accessor.Db.InsertIntoUser(registrationInfo.Login, defaultAvatarUrl, false)
@@ -107,18 +112,20 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(err.Error(),
 			`duplicate key value violates unique constraint "user_login_key"`) {
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(types.ServerResponse{
+			response, _ := types.ServerResponse{
 				Status:  http.StatusText(http.StatusConflict),
 				Message: "login_is_not_unique",
-			})
+			}.MarshalJSON()
+			w.Write(response)
 			return
 		} else {
 			log.Print(err)
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(types.ServerResponse{
+			response, _ := types.ServerResponse{
 				Status:  http.StatusText(http.StatusInternalServerError),
 				Message: "database_error",
-			})
+			}.MarshalJSON()
+			w.Write(response)
 			return
 		}
 	}
@@ -126,20 +133,22 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "database_error",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	err = accessor.Db.InsertIntoGameStatistics(userId, 0, 0)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "database_error",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	// создаём токены авторизации.
@@ -148,10 +157,11 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "database_error",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	// Уже нормальный ответ отсылаем.
@@ -165,10 +175,11 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(types.ServerResponse{
+	response, _ := types.ServerResponse{
 		Status:  http.StatusText(http.StatusCreated),
 		Message: "successful_reusable_registration",
-	})
+	}.MarshalJSON()
+	w.Write(response)
 	return
 }
 
@@ -184,25 +195,29 @@ func RegistrationRegular(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} types.ServerResponse
 // @Router /api/v1/user&temporary=true [post]
 func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
 
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	r.Body.Close()
 	registrationInfo := types.NewUserRegistration{}
-	err := json.NewDecoder(r.Body).Decode(&registrationInfo)
+	err = registrationInfo.UnmarshalJSON(bodyBytes)
+
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusBadRequest),
 			Message: "invalid_request_format",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	if registrationInfo.Login == "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusUnprocessableEntity),
 			Message: "empty_login",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	userId, err := accessor.Db.InsertIntoUser(registrationInfo.Login, defaultAvatarUrl, true)
@@ -210,18 +225,20 @@ func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(err.Error(),
 			`duplicate key value violates unique constraint "user_login_key"`) {
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(types.ServerResponse{
+			response, _ := types.ServerResponse{
 				Status:  http.StatusText(http.StatusConflict),
 				Message: "login_is_not_unique",
-			})
+			}.MarshalJSON()
+			w.Write(response)
 			return
 		} else {
 			log.Print(err)
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(types.ServerResponse{
+			response, _ := types.ServerResponse{
 				Status:  http.StatusText(http.StatusInternalServerError),
 				Message: "database_error",
-			})
+			}.MarshalJSON()
+			w.Write(response)
 			return
 		}
 	}
@@ -231,10 +248,11 @@ func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "database_error",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	// Уже нормальный ответ отсылаем.
@@ -247,10 +265,11 @@ func RegistrationTemporary(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(types.ServerResponse{
+	response, _ := types.ServerResponse{
 		Status:  http.StatusText(http.StatusCreated),
 		Message: "successful_disposable_registration",
-	})
+	}.MarshalJSON()
+	w.Write(response)
 	return
 }
 
@@ -291,15 +310,17 @@ func LeaderBoard(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "database_error",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	// Уже нормальный ответ отсылаем.
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(LeaderBoard)
+	response, _ := LeaderBoard.MarshalJSON()
+	w.Write(response)
 	return
 }
 
@@ -324,26 +345,29 @@ func UserProfile(w http.ResponseWriter, r *http.Request) {
 				// just working on
 			} else {
 				w.WriteHeader(http.StatusUnprocessableEntity)
-				json.NewEncoder(w).Encode(types.ServerResponse{
+				response, _ := types.ServerResponse{
 					Status:  http.StatusText(http.StatusUnprocessableEntity),
 					Message: "empty_login_field",
-				})
+				}.MarshalJSON()
+				w.Write(response)
 				return
 			}
 		} else {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			json.NewEncoder(w).Encode(types.ServerResponse{
+			response, _ := types.ServerResponse{
 				Status:  http.StatusText(http.StatusUnprocessableEntity),
 				Message: "login_must_be_only_1",
-			})
+			}.MarshalJSON()
+			w.Write(response)
 			return
 		}
 	} else {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusUnprocessableEntity),
 			Message: "field_login_required",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 
@@ -351,15 +375,17 @@ func UserProfile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "database_error",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	// нормальный ответ
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(userProfile)
+	response, _ := userProfile.MarshalJSON()
+	w.Write(response)
 	return
 }
 
@@ -376,27 +402,30 @@ func UserProfile(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} types.ServerResponse
 // @Router /api/v1/session [post]
 func Login(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
 	w.Header().Set("Content-Type", "application/json")
 
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	r.Body.Close()
 	registrationInfo := types.NewUserRegistration{}
-	err := json.NewDecoder(r.Body).Decode(&registrationInfo)
+	err = registrationInfo.UnmarshalJSON(bodyBytes)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusBadRequest),
 			Message: "invalid_request_format",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	exists, userId, err := accessor.Db.SelectUserIdByLoginPasswordHash(registrationInfo.Login, sha256hash(registrationInfo.Password))
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "database_error",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	if exists {
@@ -405,10 +434,11 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Print(err)
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(types.ServerResponse{
+			response, _ := types.ServerResponse{
 				Status:  http.StatusText(http.StatusInternalServerError),
 				Message: "database_error",
-			})
+			}.MarshalJSON()
+			w.Write(response)
 			return
 		}
 		// Уже нормальный ответ отсылаем.
@@ -420,17 +450,20 @@ func Login(w http.ResponseWriter, r *http.Request) {
 			SameSite: http.SameSiteLaxMode,
 		})
 		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusAccepted),
 			Message: "successful_password_login",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 	} else {
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusFailedDependency),
 			Message: "wrong_login_or_password",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 	}
+	return
 }
 
 // Logout godoc
@@ -449,20 +482,22 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusUnauthorized),
 			Message: "unauthorized_user",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	err = accessor.Db.DropUsersSession(inCookie.Value)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusNotFound),
 			Message: "target_session_not_found",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
@@ -473,10 +508,11 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(types.ServerResponse{
+	response, _ := types.ServerResponse{
 		Status:  http.StatusText(http.StatusOK),
 		Message: "successful_logout",
-	})
+	}.MarshalJSON()
+	w.Write(response)
 }
 
 // Корень, куда сохраняются аватарки и прочие загружаемые пользователем ресурсы.
@@ -507,28 +543,31 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	if err != nil || cookie.Value == "" {
 		log.Print(err)
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusForbidden),
 			Message: "unauthorized_user",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	exist, user, err := accessor.Db.SelectUserBySessionId(cookie.Value)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "cannot_create_file",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	if !exist {
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusForbidden),
 			Message: "unauthorized_user",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	r.ParseMultipartForm(0)
@@ -536,10 +575,11 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusBadRequest),
 			Message: "cannot_get_file",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	defer file.Close()
@@ -549,10 +589,11 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "cannot_create_file",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	defer f.Close()
@@ -561,35 +602,41 @@ func SetAvatar(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
 			Message: "database_error",
-		})
+		}.MarshalJSON()
+		w.Write(response)
 		return
 	}
 	io.Copy(f, file)
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(types.ServerResponse{
+	response, _ := types.ServerResponse{
 		Status:  http.StatusText(http.StatusCreated),
 		Message: "successful_avatar_uploading",
-	})
+	}.MarshalJSON()
+	w.Write(response)
 	return
 }
 
 func ErrorMethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.WriteHeader(http.StatusMethodNotAllowed)
-	json.NewEncoder(w).Encode(types.ServerResponse{
+	response, _ := types.ServerResponse{
 		Status:  http.StatusText(http.StatusMethodNotAllowed),
 		Message: "this_method_is_not_supported",
-	})
+	}.MarshalJSON()
+	w.Write(response)
+	return
 }
 
 func ErrorRequiredField(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	w.WriteHeader(http.StatusBadRequest)
-	json.NewEncoder(w).Encode(types.ServerResponse{
+	response, _ := types.ServerResponse{
 		Status:  http.StatusText(http.StatusBadRequest),
 		Message: "field_'temporary'_required",
-	})
+	}.MarshalJSON()
+	w.Write(response)
+	return
 }
