@@ -1,10 +1,11 @@
 package hub
 
 import (
-	"github.com/go-park-mail-ru/2018_2_42/chat_server/acessor"
-	"github.com/go-park-mail-ru/2018_2_42/chat_server/types"
 	"log"
 	"time"
+
+	"github.com/go-park-mail-ru/2018_2_42/chat_server/acessor"
+	"github.com/go-park-mail-ru/2018_2_42/chat_server/types"
 )
 
 type Hub struct {

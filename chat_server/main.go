@@ -1,10 +1,6 @@
 package main
 
 import (
-	"github.com/go-park-mail-ru/2018_2_42/chat_server/acessor"
-	"github.com/go-park-mail-ru/2018_2_42/chat_server/hub"
-	"github.com/go-park-mail-ru/2018_2_42/chat_server/types"
-	"github.com/go-park-mail-ru/2018_2_42/chat_server/websocket_upgrader"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/log/log15adapter"
 	flag "github.com/spf13/pflag" // ради gnu style: --flag='value'
@@ -12,6 +8,11 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/go-park-mail-ru/2018_2_42/chat_server/acessor"
+	"github.com/go-park-mail-ru/2018_2_42/chat_server/hub"
+	"github.com/go-park-mail-ru/2018_2_42/chat_server/types"
+	"github.com/go-park-mail-ru/2018_2_42/chat_server/websocket_upgrader"
 )
 
 func main() {
