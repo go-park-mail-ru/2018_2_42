@@ -3,7 +3,7 @@ package websocket_test_page
 import "net/http"
 
 func WebSocketTestPage(w http.ResponseWriter, r *http.Request) {
-	// language=HTML
+	//Language=HTML
 	var html = []byte(`
 <!DOCTYPE html>
 <html lang="en">

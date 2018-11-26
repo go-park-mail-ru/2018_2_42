@@ -1,7 +1,6 @@
 package connection_upgrader
 
 import (
-	"encoding/json"
 	"github.com/go-park-mail-ru/2018_2_42/authorization_server/types"
 	"github.com/go-park-mail-ru/2018_2_42/game_server/user_connection"
 	"github.com/gorilla/websocket"
@@ -40,10 +39,10 @@ func (cu *ConnectionUpgrader) HttpEntryPoint(w http.ResponseWriter, r *http.Requ
 	// Проверяет sessionid из cookie.
 	sessionId, err := r.Cookie("sessionid")
 	if err != nil {
-		response, _ := json.Marshal(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  "forbidden",
 			Message: "missing_sessionid_cookie",
-		})
+		}.MarshalJSON()
 		w.WriteHeader(http.StatusForbidden)
 		w.Write(response)
 		r.Body.Close()
@@ -56,10 +55,10 @@ func (cu *ConnectionUpgrader) HttpEntryPoint(w http.ResponseWriter, r *http.Requ
 	// Меняет протокол.
 	WSConnection, err := cu.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		response, _ := json.Marshal(types.ServerResponse{
+		response, _ := types.ServerResponse{
 			Status:  "bad request",
 			Message: "error on upgrade connection: " + err.Error(),
-		})
+		}.MarshalJSON()
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(response)
 		r.Body.Close()

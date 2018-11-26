@@ -1,8 +1,8 @@
 package rooms_manager
 
 import (
-	"encoding/json"
 	"github.com/go-park-mail-ru/2018_2_42/game_server/types"
+	"github.com/mailru/easyjson"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"strconv"
@@ -21,14 +21,13 @@ func (r *Room) GameMaster() {
 			log.Printf("message came from the User1: " + string(message))
 		}
 		event := types.Event{}
-		err := json.Unmarshal(message, &event)
+		err := event.UnmarshalJSON(message)
 		if err != nil {
-			response, _ := json.Marshal(types.ErrorMessage(
-				"error while parsing first level: " + err.Error()))
-			response, _ = json.Marshal(types.Event{
+			response, _ := types.ErrorMessage("error while parsing first level: " + err.Error()).MarshalJSON()
+			response, _ = types.Event{
 				Method:    "error_message",
 				Parameter: response,
-			})
+			}.MarshalJSON()
 			if role == 0 {
 				r.User0To <- response
 			} else {
@@ -38,12 +37,11 @@ func (r *Room) GameMaster() {
 		if event.Method == "upload_map" {
 			err := r.UploadMap(role, event.Parameter)
 			if err != nil {
-				response, _ := json.Marshal(types.ErrorMessage(
-					"error while process 'upload_map': " + err.Error()))
-				response, _ = json.Marshal(types.Event{
+				response, _ := types.ErrorMessage("error while process 'upload_map': " + err.Error()).MarshalJSON()
+				response, _ = types.Event{
 					Method:    "error_message",
 					Parameter: response,
-				})
+				}.MarshalJSON()
 				if role == 0 {
 					r.User0To <- response
 				} else {
@@ -58,12 +56,11 @@ func (r *Room) GameMaster() {
 		if event.Method == "attempt_go_to_cell" {
 			gameover, err := r.AttemptGoToCell(role, event.Parameter)
 			if err != nil {
-				response, _ := json.Marshal(types.ErrorMessage(
-					"error while process 'attempt_go_to_cell': " + err.Error()))
-				response, _ = json.Marshal(types.Event{
+				response, _ := types.ErrorMessage("error while process 'attempt_go_to_cell': " + err.Error()).MarshalJSON()
+				response, _ = types.Event{
 					Method:    "error_message",
 					Parameter: response,
-				})
+				}.MarshalJSON()
 				if role == 0 {
 					r.User0To <- response
 				} else {
@@ -85,9 +82,9 @@ func (r *Room) GameMaster() {
 }
 
 // ответственность: загружает данные от пользователя, начинает игру
-func (r *Room) UploadMap(role RoleId, message json.RawMessage) (err error) {
+func (r *Room) UploadMap(role RoleId, message easyjson.RawMessage) (err error) {
 	var uploadedMap types.UploadMap
-	err = json.Unmarshal(message, &uploadedMap)
+	err = uploadedMap.UnmarshalJSON(message)
 	if err != nil {
 		err = errors.Wrap(err, "in json.Unmarshal message into types.UploadMap: ")
 		return
@@ -191,11 +188,11 @@ func (r *Room) DownloadMap(role RoleId) {
 			}
 			downloadMap[j] = cell
 		}
-		parameter, _ := json.Marshal(downloadMap)
-		response, _ := json.Marshal(types.Event{
+		parameter, _ := downloadMap.MarshalJSON()
+		response, _ := types.Event{
 			Method:    "download_map",
 			Parameter: parameter,
-		})
+		}.MarshalJSON()
 		r.User0To <- response
 	} else {
 		downloadMap := types.DownloadMap{}
@@ -217,11 +214,11 @@ func (r *Room) DownloadMap(role RoleId) {
 			}
 			downloadMap[i] = cell
 		}
-		parameter, _ := json.Marshal(downloadMap)
-		response, _ := json.Marshal(types.Event{
+		parameter, _ := downloadMap.MarshalJSON()
+		response, _ := types.Event{
 			Method:    "download_map",
 			Parameter: parameter,
-		})
+		}.MarshalJSON()
 		r.User1To <- response
 	}
 	return
@@ -231,17 +228,17 @@ func (r *Room) DownloadMap(role RoleId) {
 func (r *Room) YourRival(role RoleId) {
 	if role == 0 {
 		response := types.YourRival(r.User1.Login)
-		response, _ = json.Marshal(types.Event{
+		response, _ = types.Event{
 			Method:    "your_rival",
 			Parameter: []byte(response),
-		})
+		}.MarshalJSON()
 		r.User1To <- response
 	} else {
 		response := types.YourRival(r.User0.Login)
-		response, _ = json.Marshal(types.Event{
+		response, _ = types.Event{
 			Method:    "your_rival",
 			Parameter: []byte(response),
-		})
+		}.MarshalJSON()
 		r.User0To <- response
 	}
 	return
@@ -255,10 +252,10 @@ func (r *Room) YourTurn(role RoleId) {
 	} else {
 		response = []byte("false")
 	}
-	response, _ = json.Marshal(types.Event{
+	response, _ = types.Event{
 		Method:    "your_turn",
 		Parameter: response,
-	})
+	}.MarshalJSON()
 	if role == 0 {
 		r.User0To <- response
 	} else {
@@ -270,9 +267,9 @@ func (r *Room) YourTurn(role RoleId) {
 // ответственность: принимает данные от пользователя, обрабатывает с учётом состояния,
 // изменяет согласно игровой механике карту (фактически содержит всю игру в себе 😮)
 // вызывает функции, отправляющие запросы.
-func (r *Room) AttemptGoToCell(role RoleId, message json.RawMessage) (gameover bool, err error) {
+func (r *Room) AttemptGoToCell(role RoleId, message easyjson.RawMessage) (gameover bool, err error) {
 	var attemptGoToCell types.AttemptGoToCell
-	err = json.Unmarshal(message, &attemptGoToCell)
+	err = attemptGoToCell.UnmarshalJSON(message)
 	if err != nil {
 		err = errors.Wrap(err, "in json.Unmarshal message into types.attemptGoToCell: ")
 		return
@@ -386,24 +383,24 @@ func (r *Room) AttemptGoToCell(role RoleId, message json.RawMessage) (gameover b
 // считает, что карта уже изменена. Вращает для нулевого игрока.
 func (r *Room) MoveCharacter(role RoleId, from int, to int) {
 	if role == 0 {
-		responce, _ := json.Marshal(types.MoveCharacter{
+		responce, _ := types.MoveCharacter{
 			From: 41 - from,
 			To:   41 - to,
-		})
-		responce, _ = json.Marshal(types.Event{
+		}.MarshalJSON()
+		responce, _ = types.Event{
 			Method:    "move_character",
 			Parameter: responce,
-		})
+		}.MarshalJSON()
 		r.User0To <- responce
 	} else {
-		responce, _ := json.Marshal(types.MoveCharacter{
+		responce, _ := types.MoveCharacter{
 			From: from,
 			To:   to,
-		})
-		responce, _ = json.Marshal(types.Event{
+		}.MarshalJSON()
+		responce, _ = types.Event{
 			Method:    "move_character",
 			Parameter: responce,
-		})
+		}.MarshalJSON()
 		r.User1To <- responce
 	}
 	return
@@ -413,7 +410,7 @@ func (r *Room) MoveCharacter(role RoleId, from int, to int) {
 // считает, что карта уже изменена. Вращает для нулевого игрока.
 func (r *Room) Attack(role RoleId, winner int, winnerWeapon Weapon, loser int, loserWeapon Weapon) {
 	if role == 0 {
-		responce, _ := json.Marshal(types.Attack{
+		response, _ := types.Attack{
 			Winner: types.AttackingСharacter{
 				Coordinates: 41 - winner,
 				Weapon:      string(winnerWeapon),
@@ -422,14 +419,14 @@ func (r *Room) Attack(role RoleId, winner int, winnerWeapon Weapon, loser int, l
 				Coordinates: 41 - loser,
 				Weapon:      string(loserWeapon),
 			},
-		})
-		response, _ := json.Marshal(types.Event{
+		}.MarshalJSON()
+		response, _ = types.Event{
 			Method:    "attack",
-			Parameter: responce,
-		})
+			Parameter: response,
+		}.MarshalJSON()
 		r.User0To <- response
 	} else {
-		responce, _ := json.Marshal(types.Attack{
+		response, _ := types.Attack{
 			Winner: types.AttackingСharacter{
 				Coordinates: winner,
 				Weapon:      string(winnerWeapon),
@@ -438,11 +435,11 @@ func (r *Room) Attack(role RoleId, winner int, winnerWeapon Weapon, loser int, l
 				Coordinates: loser,
 				Weapon:      string(loserWeapon),
 			},
-		})
-		response, _ := json.Marshal(types.Event{
+		}.MarshalJSON()
+		response, _ = types.Event{
 			Method:    "attack",
-			Parameter: responce,
-		})
+			Parameter: response,
+		}.MarshalJSON()
 		r.User1To <- response
 	}
 	return
@@ -452,24 +449,24 @@ func (r *Room) Attack(role RoleId, winner int, winnerWeapon Weapon, loser int, l
 // считает, что карта уже изменена. вращает для нулевого
 func (r *Room) AddWeapon(role RoleId, coordinates int, weapon Weapon) {
 	if role == 0 {
-		response, _ := json.Marshal(types.AddWeapon{
+		response, _ := types.AddWeapon{
 			Coordinates: 41 - coordinates,
 			Weapon:      string(weapon),
-		})
-		response, _ = json.Marshal(types.Event{
+		}.MarshalJSON()
+		response, _ = types.Event{
 			Method:    "add_weapon",
 			Parameter: response,
-		})
+		}.MarshalJSON()
 		r.User0To <- response
 	} else {
-		response, _ := json.Marshal(types.AddWeapon{
+		response, _ := types.AddWeapon{
 			Coordinates: coordinates,
 			Weapon:      string(weapon),
-		})
-		response, _ = json.Marshal(types.Event{
+		}.MarshalJSON()
+		response, _ = types.Event{
 			Method:    "add_weapon",
 			Parameter: response,
-		})
+		}.MarshalJSON()
 		r.User1To <- response
 	}
 	return
@@ -484,11 +481,11 @@ func (r *Room) Gameover(role RoleId, winnerRole RoleId) {
 	} else {
 		gameover.WinnerColor = "red"
 	}
-	response, _ := json.Marshal(gameover)
-	response, _ = json.Marshal(types.Event{
+	response, _ := gameover.MarshalJSON()
+	response, _ = types.Event{
 		Method:    "gameover",
 		Parameter: response,
-	})
+	}.MarshalJSON()
 	if role == 0 {
 		r.User0To <- response
 	} else {
@@ -496,12 +493,6 @@ func (r *Room) Gameover(role RoleId, winnerRole RoleId) {
 	}
 	return
 }
-
-// функции, которые можно вызывать с клиента.
-// var availableFunctions = map[string]func(r *Room, role RoleId, message json.RawMessage) (err error){
-// 	"upload_map": UploadMap,
-//	"attempt_go_to_cell":
-//}
 
 // проблемы, почему не используются библиотеки:
 // Stateful сервер: необходимо помнить роль, в которой работает пользователь,
