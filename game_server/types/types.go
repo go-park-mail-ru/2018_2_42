@@ -4,7 +4,9 @@
 
 package types
 
-import "encoding/json"
+import (
+	"github.com/mailru/easyjson"
+)
 
 // первый уровень парсинга
 //easyjson:json
@@ -14,7 +16,7 @@ type Event struct {
 	// Параметры. Так как неизвестен формат, всё парсится в 2 этапа.
 	// сначала только эта структура, потом по названию выбирается функция, в
 	// надстройку к ней передаётся RawMessage, который парсится в конкретную структуру.
-	Parameter json.RawMessage `json:"parameter"`
+	Parameter easyjson.RawMessage `json:"parameter"`
 }
 
 //easyjson:json
@@ -71,5 +73,14 @@ type Gameover struct {
 	WinnerColor string `json:"winner_color"`
 }
 
-//easyjson:json
 type ErrorMessage string
+
+func (em ErrorMessage) MarshalJSON() ([]byte, error) { // easyjson не захотел работать со string
+	return []byte("\"" + em + "\""), nil
+}
+
+//easyjson:json
+type ServerResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}

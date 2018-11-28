@@ -16,7 +16,7 @@ type RoleId uint8 // ∈ [0, 1]
 
 // описание принадлежности к игре. Номер игровой комнаты и номер в игре,
 // певый или второй игрок. Второй хранится на сервере в перевёрнутом состоянии.
-type GameToСonnect struct {
+type GameToConnect struct {
 	Room RoomId
 	Role RoleId
 }
@@ -248,7 +248,7 @@ type RoomsManager struct {
 	// используется для повторного подключения к той же игре, что и раньше.
 	// изменяется из конструктора/деструктора игровой комнаты.
 	// Ключ - login пользователя.
-	ProcessedPlayers map[string]GameToСonnect
+	ProcessedPlayers map[string]GameToConnect
 	// Игровые комнаты.
 	// Внутри каждая обслуживается одним мастерм игры - горутиной.
 	// 4 горутины на комнату, что изолируют соединение от игровой логики и подметы соединений менеджером потерь.
@@ -274,7 +274,7 @@ type RoomsManager struct {
 
 func NewRoomsManager() (roomsManager *RoomsManager) {
 	roomsManager = &RoomsManager{
-		ProcessedPlayers: make(map[string]GameToСonnect),
+		ProcessedPlayers: make(map[string]GameToConnect),
 		Rooms:            make(map[RoomId]*Room),
 	}
 	return
@@ -300,11 +300,11 @@ func (rm *RoomsManager) MaintainConnections(connectionQueue <-chan *user_connect
 				log.Printf("create room %d user0 = '%s', user1 = '%s'", rm.RoomNumber, waitingConnection.Token, connection.Token)
 
 				rm.Rooms[rm.RoomNumber] = NewRoom(waitingConnection, connection)
-				rm.ProcessedPlayers[waitingConnection.Token] = GameToСonnect{
+				rm.ProcessedPlayers[waitingConnection.Token] = GameToConnect{
 					Room: rm.RoomNumber,
 					Role: 0,
 				}
-				rm.ProcessedPlayers[connection.Token] = GameToСonnect{
+				rm.ProcessedPlayers[connection.Token] = GameToConnect{
 					Room: rm.RoomNumber,
 					Role: 1,
 				}

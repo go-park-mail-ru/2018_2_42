@@ -4,34 +4,28 @@ import (
 	"github.com/pkg/errors"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"os"
-	"sync"
 )
 
-var configOnce = struct {
-	sync.Once
-	data map[string]interface{}
-	err  error
-}{
-	data: make(map[string]interface{}),
-}
+// json 5 используется для парсинга json с пропуском комментариев.
+// Стандарт json это не поддерживает, а перезапись поля
+// {"field": "comment", "field": "real value"} выглядит странно.
 
-// Return config, can be called from anywhere.
-func ParseConfig() (map[string]interface{}, error) {
-	configOnce.Do(func() {
-		var file *os.File
-		file, configOnce.err = os.Open("./main.json5")
-		if configOnce.err != nil {
-			configOnce.err = errors.New("error on Open('./main.json5'): Do you put config next to the application? : " + configOnce.err.Error())
-			return
-		}
-		defer file.Close()
-		dec := json5.NewDecoder(file)
-		configOnce.err = dec.Decode(&configOnce.data)
-		if configOnce.err != nil {
-			configOnce.err = errors.New("error on parsing config : it must be json object: " + configOnce.err.Error())
-			return
-		}
+func ParseConfig(configPath string) (config Config, err error) {
+	file, err := os.Open(configPath)
+	if err != nil {
+		err = errors.Wrap(err, "error on Open('"+configPath+"'): Do you put config next to the application? : ")
 		return
-	})
-	return configOnce.data, configOnce.err
+	}
+	dec := json5.NewDecoder(file)
+	err = dec.Decode(&config)
+	if err != nil {
+		err = errors.Wrap(err, "on parsing config: it must be json string to string object: ")
+		return
+	}
+	err = file.Close()
+	if err != nil {
+		err = errors.Wrap(err, "on close config: ")
+		return
+	}
+	return
 }

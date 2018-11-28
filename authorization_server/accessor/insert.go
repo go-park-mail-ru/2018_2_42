@@ -5,50 +5,63 @@ package accessor
 
 import (
 	"database/sql"
-	"errors"
-	"fmt"
+	"github.com/go-park-mail-ru/2018_2_42/authorization_server/config"
 	"github.com/go-park-mail-ru/2018_2_42/authorization_server/types"
 	_ "github.com/lib/pq"
-	"log"
-	"reflect"
-
-	"github.com/go-park-mail-ru/2018_2_42/authorization_server/config"
+	"github.com/pkg/errors"
 )
 
-// этот паттерн называется proxy - обёртка вокруг пучка соединений к базе данных
-// не позволяет делать запросы в обход логики
+// собственный тип, что бы прикреплять к нему функции с бизнес логикой.
+// паттерн - обёртка вокруг пула соединений к базе данных
 type DB struct {
 	*sql.DB // Резерв соединений к базе данных.
 }
 
-var Db DB // собственный тип, что бы прикреплять к нему функции с бизнес логикой.
+func ConnectToDatabase(config config.Config) (db DB, err error) {
+	newDb, err := sql.Open("postgres", config.DataSourceName)
+	if err != nil {
+		err = errors.Wrap(err, "error on open connection to '"+config.DataSourceName+"'")
+		return
+	}
 
-func init() {
-	dataSourceName := ""
-	if data, err := config.ParseConfig(); err == nil {
-		if reflect.TypeOf(data["data_source_name"]).Kind() == reflect.String {
-			dataSourceName = data["data_source_name"].(string)
-		} else {
-			log.Fatal(errors.New(fmt.Sprintf(
-				"not string 'data_source_name' configuration param '%v'", data["data_source_name"])))
+	err = newDb.Ping()
+	if err != nil {
+		err = errors.Wrap(err, "error during the first connection (Are you sure that the database exists and the application has access to it?): ")
+		return
+	}
+
+	db = DB{newDb}
+	return
+}
+
+// подготовит все prepared statement,
+// должна быть вызвана после соединения с базой.
+func (db *DB) InitDatabase() (err error) {
+	initAll := []func() error{
+		db.init00,
+		db.init01,
+		db.init02,
+		db.init03,
+		db.init04,
+		db.init05,
+		db.init06,
+		db.init07,
+		db.init08,
+		db.init09,
+		db.init10,
+	}
+	for _, init := range initAll {
+		err = init()
+		if err != nil {
+			err = errors.Wrap(err, "during preparing functions: ")
+			break
 		}
-	} else {
-		log.Fatal(err)
 	}
+	return
+}
 
-	newDb, err := sql.Open("postgres", dataSourceName)
-	if err != nil {
-		log.Fatal(err)
-	} else {
-		Db = DB{newDb}
-	}
-
-	err = Db.Ping()
-	if err != nil {
-		log.Fatal(errors.New("error during the first connection (Are you sure that the database exists and the application has access to it?): " + err.Error()))
-	}
-
-	_, err = Db.Exec(`
+func (db *DB) init00() (err error) {
+	_, err = db.Exec(`
 begin transaction;
 
 create table if not exists "user" (
@@ -91,27 +104,15 @@ create table if not exists "current_login" (
 
 commit;
 	`)
-	if err != nil {
-		log.Fatal(errors.New("error during preparation database tables: " + err.Error()))
-	}
+	err = errors.Wrap(err, "error during preparation database tables: init00: ")
+	return
 }
-
-// По аналогии с regexp.MustCompile используется при запуске,
-// проверяет успешность подготовки SQL для дальнейшего использования.
-func must(stmt *sql.Stmt, err error) *sql.Stmt {
-	if err != nil {
-		log.Fatal(errors.New("error when compiling SQL expression: " + err.Error()))
-	}
-	return stmt
-}
-
-// Далее функции, реализующие логику зпросов к базе.
 
 // В подобных init подготавливаются все зпросы SQL.
 var stmtInsertIntoUser *sql.Stmt
 
-func init() {
-	stmtInsertIntoUser = must(Db.Prepare(`
+func (db *DB) init01() (err error) {
+	stmtInsertIntoUser, err = db.Prepare(`
 insert into "user"(
 	"login",
 	"avatar_address",
@@ -120,7 +121,9 @@ insert into "user"(
 ) values (
 	$1, $2, $3, now()
 ) returning id as new_user_id;
-	`))
+	`)
+	err = errors.Wrap(err, "init01: ")
+	return
 }
 
 // Такие функции скрывают нетипизированность prepared statement.
@@ -134,15 +137,17 @@ func (db *DB) InsertIntoUser(login string, avatarAddress string, disposable bool
 
 var stmtInsertIntoRegularLoginInformation *sql.Stmt
 
-func init() {
-	stmtInsertIntoRegularLoginInformation = must(Db.Prepare(`
+func (db *DB) init02() (err error) {
+	stmtInsertIntoRegularLoginInformation, err = db.Prepare(`
 insert into "regular_login_information"(
 	"user_id",
 	"password_hash"
 ) values (
 	$1, $2
 );
-	`))
+	`)
+	err = errors.Wrap(err, "init02: ")
+	return
 }
 
 func (db *DB) InsertIntoRegularLoginInformation(userId UserId, passwordHash string) (err error) {
@@ -155,8 +160,8 @@ func (db *DB) InsertIntoRegularLoginInformation(userId UserId, passwordHash stri
 
 var stmtInsertIntoGameStatistics *sql.Stmt
 
-func init() {
-	stmtInsertIntoGameStatistics = must(Db.Prepare(`
+func (db *DB) init03() (err error) {
+	stmtInsertIntoGameStatistics, err = db.Prepare(`
 insert into "game_statistics" (
 	"user_id",
 	"games_played",
@@ -164,7 +169,9 @@ insert into "game_statistics" (
 ) values (
 	$1, $2, $3 
 );
-	`))
+	`)
+	err = errors.Wrap(err, "init03: ")
+	return
 }
 
 func (db *DB) InsertIntoGameStatistics(userId UserId, gamesPlayed int32, wins int32) (err error) {
@@ -177,8 +184,8 @@ func (db *DB) InsertIntoGameStatistics(userId UserId, gamesPlayed int32, wins in
 
 var stmtInsertIntoCurrentLogin *sql.Stmt
 
-func init() {
-	stmtInsertIntoCurrentLogin = must(Db.Prepare(`
+func (db *DB) init04() (err error) {
+	stmtInsertIntoCurrentLogin, err = db.Prepare(`
 insert into "current_login" (
 	"user_id",
     "authorization_token" -- cookie пользователя
@@ -186,7 +193,9 @@ insert into "current_login" (
 	$1, $2
 ) on conflict ("user_id") do update set 
     "authorization_token" = excluded."authorization_token"
-;   `))
+;   `)
+	err = errors.Wrap(err, "init04: ")
+	return
 }
 
 // update or insert
@@ -200,8 +209,8 @@ func (db *DB) UpsertIntoCurrentLogin(userId UserId, authorizationToken string) (
 
 var stmtSelectLeaderBoard *sql.Stmt
 
-func init() {
-	stmtSelectLeaderBoard = must(Db.Prepare(`
+func (db *DB) init05() (err error) {
+	stmtSelectLeaderBoard, err = db.Prepare(`
 select
     "user"."login",
     "user"."avatar_address",
@@ -219,7 +228,9 @@ limit
     $1
 offset
     $2
-;   `))
+;   `)
+	err = errors.Wrap(err, "init05: ")
+	return
 }
 
 func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation types.PublicUsersInformation, err error) {
@@ -253,8 +264,8 @@ func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation types.P
 
 var stmtSelectUserByLogin *sql.Stmt
 
-func init() {
-	stmtSelectUserByLogin = must(Db.Prepare(`
+func (db *DB) init06() (err error) {
+	stmtSelectUserByLogin, err = db.Prepare(`
 select
     "user"."login",
     "user"."avatar_address",
@@ -266,7 +277,9 @@ from
 where 
 	"user"."login" = $1 and
 	"user"."id" = "game_statistics"."user_id"
-;   `))
+;   `)
+	err = errors.Wrap(err, "init03: ")
+	return
 }
 
 func (db *DB) SelectUserByLogin(login string) (userInformation types.PublicUserInformation, err error) {
@@ -283,8 +296,8 @@ func (db *DB) SelectUserByLogin(login string) (userInformation types.PublicUserI
 
 var stmtSelectUserIdByLoginPassword *sql.Stmt
 
-func init() {
-	stmtSelectUserIdByLoginPassword = must(Db.Prepare(`
+func (db *DB) init07() (err error) {
+	stmtSelectUserIdByLoginPassword, err = db.Prepare(`
 select
 	"user"."id"
 from 
@@ -294,7 +307,9 @@ where
 	"user"."login" = $1 and
 	"user"."id" = "regular_login_information"."user_id" and 
 	"regular_login_information"."password_hash" = $2
-;   `))
+;   `)
+	err = errors.Wrap(err, "init07: ")
+	return
 }
 
 func (db *DB) SelectUserIdByLoginPasswordHash(login string, passwordHash string) (exist bool, userId UserId, err error) {
@@ -316,13 +331,15 @@ func (db *DB) SelectUserIdByLoginPasswordHash(login string, passwordHash string)
 
 var stmtDropUsersSession *sql.Stmt
 
-func init() {
-	stmtDropUsersSession = must(Db.Prepare(`
+func (db *DB) init08() (err error) {
+	stmtDropUsersSession, err = db.Prepare(`
 delete from
     "current_login"
 where 
     "current_login"."authorization_token" = $1
-;   `))
+;   `)
+	err = errors.Wrap(err, "init08: ")
+	return
 }
 
 func (db *DB) DropUsersSession(authorizationToken string) (err error) {
@@ -335,8 +352,8 @@ func (db *DB) DropUsersSession(authorizationToken string) (err error) {
 
 var stmtUpdateUsersAvatarByLogin *sql.Stmt
 
-func init() {
-	stmtUpdateUsersAvatarByLogin = must(Db.Prepare(`
+func (db *DB) init09() (err error) {
+	stmtUpdateUsersAvatarByLogin, err = db.Prepare(`
 update
     "user"
 set
@@ -345,7 +362,9 @@ from
     "current_login"
 where
     "user"."login" = $1
-;    `))
+;    `)
+	err = errors.Wrap(err, "init09: ")
+	return
 }
 
 func (db *DB) UpdateUsersAvatarByLogin(login string, avatarAddress string) (err error) {
@@ -362,8 +381,8 @@ func (db *DB) UpdateUsersAvatarByLogin(login string, avatarAddress string) (err 
 
 var stmtSelectUserLoginBySessionId *sql.Stmt
 
-func init() {
-	stmtSelectUserLoginBySessionId = must(Db.Prepare(`
+func (db *DB) init10() (err error) {
+	stmtSelectUserLoginBySessionId, err = db.Prepare(`
 select 	
 	"user"."id",
 	"user"."login",
@@ -375,7 +394,9 @@ from
 where
 	"current_login"."authorization_token" = $1 and
 	"current_login"."user_id" = "user"."id"
-;    `))
+;    `)
+	err = errors.Wrap(err, "init10: ")
+	return
 }
 
 func (db *DB) SelectUserBySessionId(authorizationToken string) (exist bool, user User, err error) {

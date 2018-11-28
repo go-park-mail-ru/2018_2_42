@@ -12,8 +12,10 @@ import (
 )
 
 func main() {
-	port := flag.Uint16("port", 8080, "listen port for websocket server")
+	listenPort := flag.Uint16("listen-port", 8080, "listen port for websocket server")
+	// authorisationServerPort := flag.Uint16("authorisation-port", 8081, "port for grpc connection to the authentication server")
 	flag.Parse()
+	// Инициализируем подсервер авторизации. connection_upgrader через него подтягивает login по cookie.
 
 	// Инициализируем upgrader - он превращает соединения в websocket.
 	upgrader := connection_upgrader.NewConnectionUpgrader()
@@ -21,7 +23,7 @@ func main() {
 	go roomsManager.MaintainConnections(upgrader.QueueToGame)
 	http.HandleFunc("/game/v1/entrypoint", upgrader.HttpEntryPoint)
 	http.HandleFunc("/", websocket_test_page.WebSocketTestPage)
-	portStr := strconv.Itoa(int(*port))
+	portStr := strconv.Itoa(int(*listenPort))
 	log.Println("Listening on :" + portStr)
 	log.Print(http.ListenAndServe(":"+portStr, nil))
 }

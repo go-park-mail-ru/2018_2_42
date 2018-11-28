@@ -1,12 +1,14 @@
 package connection_upgrader
 
 import (
-	"github.com/go-park-mail-ru/2018_2_42/authorization_server/types"
-	"github.com/go-park-mail-ru/2018_2_42/game_server/user_connection"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"time"
+
+	authorisationClient "github.com/go-park-mail-ru/2018_2_42/game_server/grpc_authorisation_client"
+	"github.com/go-park-mail-ru/2018_2_42/game_server/types"
+	"github.com/go-park-mail-ru/2018_2_42/game_server/user_connection"
 )
 
 // Ответственность: превращение http соединения в игрока - пользователя.
@@ -32,6 +34,8 @@ func NewConnectionUpgrader() (cu *ConnectionUpgrader) {
 	return
 }
 
+var debug = true
+
 // Handler, входная точка для http соединения.
 // Запускается в разных горутинах, только читает из класса.
 func (cu *ConnectionUpgrader) HttpEntryPoint(w http.ResponseWriter, r *http.Request) {
@@ -48,10 +52,39 @@ func (cu *ConnectionUpgrader) HttpEntryPoint(w http.ResponseWriter, r *http.Requ
 		r.Body.Close()
 		return
 	}
-	// проверяет наличие этого пользователя в базе
-	// TODO: реализовать проверку пользователя. Для этого нужен handler в authorisation server
-	login := "Anon"
 
+	var avatar string
+	var login string
+	if debug {
+		// просто создаёт случайный логин
+		login = "Anon" + time.Now().Format(time.RFC3339)
+		avatar = "/images/default.png"
+	} else {
+		// проверяет наличие этого пользователя в базе
+		var err error
+		login, avatar, err = authorisationClient.Worker(sessionId.Value)
+		if err != nil {
+			detailedError := err.(*authorisationClient.DetailedError)
+			if detailedError.Code == http.StatusForbidden {
+				response, _ := types.ServerResponse{
+					Status:  "forbidden",
+					Message: "you are not logged in: " + err.Error(),
+				}.MarshalJSON()
+				w.WriteHeader(http.StatusForbidden)
+				w.Write(response)
+				r.Body.Close()
+				return
+			}
+			response, _ := types.ServerResponse{
+				Status:  "internal server error",
+				Message: err.Error(),
+			}.MarshalJSON()
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(response)
+			r.Body.Close()
+			return
+		}
+	}
 	// Меняет протокол.
 	WSConnection, err := cu.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -66,6 +99,7 @@ func (cu *ConnectionUpgrader) HttpEntryPoint(w http.ResponseWriter, r *http.Requ
 	}
 	connection := &user_connection.UserConnection{
 		Login:      login,
+		Avatar:     avatar,
 		Token:      sessionId.Value,
 		Connection: WSConnection,
 	}
