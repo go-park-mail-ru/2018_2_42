@@ -109,13 +109,18 @@
                                    |сервер проверяет первосходство
                                    |предметов персонажей
                                    |предположим, что равные предметы
+                                   |выставляет флажок "конфликт"
+                                   |отсылает "перевыбор оружия" 0-у
+|открывает окошко выбора оружия    |отсылает "перевыбор оружия" 1-у   |открывает окошко выбора оружия
+|                                                                     |
+|                                                                     |
+|пользователь отвечает перевыбором |загружает оружие первого          |пользователь отвечает перевыбором
+                                   |загрудает оружие второго
+                                   |проверив, что загрузили оба,
+                                   |вычисляет бой,
+                                   |отправляет первому и второму
+|применяет результаты боя          |результат                         |применяет результаты боя
                                    |
-                                   |отправляет обновление оружия врага         
-                                   |0-у
-                                   |/*выбор нового оружия при
-                                   |  одинаковом состоянии - целый
-                                   |  дополнительный экран. Потом, если
-                                   |  успеем, равно как и ловушку. */
                                    |отправляет "ваш ход" 1-у
                                    |отправляет "ход соперника" 0-у    |меняет флажок
 |меняет флажок                                                        |ждёт пользователя
@@ -190,6 +195,9 @@ for positionId := 0; positionId <= 41; positionId++ {
     Движение персонажа
     "attempt_go_to_cell"
 
+    Загрузка нового выбранного оружия
+    "reassign_weapons"
+
 На клиенте внутри websocket:
     Загрузка всей карты
     "download_map"
@@ -197,7 +205,7 @@ for positionId := 0; positionId <= 41; positionId++ {
     Загрузка описания соперника
     "your_rival"
 
-    Установки статуса чей ход.
+    Установка статуса чей ход.
     "your_turn"
 
     Простое движение пресонажа любого игрока.
@@ -208,6 +216,9 @@ for positionId := 0; positionId <= 41; positionId++ {
 
     Обновление или появление оружия у персонажа.
     "add_weapon"
+
+    Запрос на перевыбор оружия для персонажа.
+    "weapon_change_request"
 
     Конец игры, отображение торжествующего персонажа с флагом соперника.
     "gameover"
@@ -223,7 +234,6 @@ for positionId := 0; positionId <= 41; positionId++ {
 {
   "method": "upload_map",
   "parameter": {
-    "color": "blue",
     "weapons": [
       "scissors", // 28      Расположение на карте.
       "rock",     // 29      На клиенте всегда выглядит, как у User1.
@@ -255,59 +265,59 @@ for positionId := 0; positionId <= 41; positionId++ {
   "method": "download_map",
   "parameter": [
     {
-       "color": "red",
+       "user": false,
        "weapon": null //оружие еще не спалилось
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": "rock" // оружие спалилось
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     {
-       "color": "red",
+       "user": false,
        "weapon": null
     },
     null,
@@ -325,56 +335,56 @@ for positionId := 0; positionId <= 41; positionId++ {
     null,
     null,
     {
-       "color": "blue",
+       "user": true,
        "weapon": "scissors"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "rock"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "rock"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "scissors"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "paper"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "rock"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "paper"
     }
     null, // убит
     {
-      "color": "blue",
+      "user": true,
       "weapon": "scissors"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "paper"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "rock"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "flag"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "scissors"
     },
     {
-      "color": "blue",
+      "user": true,
       "weapon": "paper"
     }
   ]
@@ -382,7 +392,7 @@ for positionId := 0; positionId <= 41; positionId++ {
 
 {
   "method": "your_rival",
-  "parameter": "admin"
+  "parameter": "admin" // логин пользователя.
 }
 
 {
@@ -423,7 +433,9 @@ for positionId := 0; positionId <= 41; positionId++ {
 {
   "method": "gameover",
   "parameter": {
-    "winner_color": "blue"
+    "winner": true, // true - вы, false - ваш соперник.
+    "from": positionId,
+    "to": positionId
   }
 }
 
