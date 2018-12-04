@@ -12,29 +12,35 @@ import (
 //easyjson:json
 type Event struct {
 	// Строка с именем вызываемого метода.
-	Method string `json:"method"`
+	Method string `json:"method,required"`
 	// Параметры. Так как неизвестен формат, всё парсится в 2 этапа.
 	// сначала только эта структура, потом по названию выбирается функция, в
 	// надстройку к ней передаётся RawMessage, который парсится в конкретную структуру.
-	Parameter easyjson.RawMessage `json:"parameter"`
+	Parameter easyjson.RawMessage `json:"parameter,required"`
 }
 
 //easyjson:json
 type UploadMap struct {
-	Color   string     `json:"color"`
-	Weapons [14]string `json:"weapons"`
+	Weapons [14]string `json:"weapons,required"`
 }
 
 //easyjson:json
 type AttemptGoToCell struct {
-	From int `json:"from"`
-	To   int `json:"to"`
+	From int `json:"from,required"`
+	To   int `json:"to,required"`
 }
 
 //easyjson:json
-type MapCell struct { // type for DownloadMap only.
-	Color  string  `json:"color"`
-	Weapon *string `json:"weapon"`
+type ReassignWeapons struct {
+	NewWeapon         string `json:"new_weapon,required"`
+	CharacterPosition int    `json:"character_position,required"`
+}
+
+//easyjson:json
+type MapCell struct {
+	// type for DownloadMap only.
+	User   bool    `json:"user,required"`
+	Weapon *string `json:"weapon,required"`
 }
 
 //easyjson:json
@@ -46,31 +52,39 @@ type YourTurn bool
 
 //easyjson:json
 type MoveCharacter struct {
-	From int `json:"from"`
-	To   int `json:"to"`
+	From int `json:"from,required"`
+	To   int `json:"to,required"`
 }
 
 //easyjson:json
-type AttackingСharacter struct { // type for Attack only
-	Coordinates int    `json:"coordinates"`
-	Weapon      string `json:"weapon"`
+type AttackingСharacter struct {
+	// type for Attack only
+	Coordinates int    `json:"coordinates,required"`
+	Weapon      string `json:"weapon,required"`
 }
 
 //easyjson:json
 type Attack struct {
-	Winner AttackingСharacter `json:"winner"`
-	Loser  AttackingСharacter `json:"loser"`
+	Winner AttackingСharacter `json:"winner,required"`
+	Loser  AttackingСharacter `json:"loser,required"`
 }
 
 //easyjson:json
 type AddWeapon struct {
-	Coordinates int    `json:"coordinates"`
-	Weapon      string `json:"weapon"`
+	Coordinates int    `json:"coordinates,required"`
+	Weapon      string `json:"weapon,required"`
 }
 
 //easyjson:json
-type Gameover struct {
-	WinnerColor string `json:"winner_color"`
+type WeaponChangeRequest struct {
+	CharacterPosition int `json:"character_position,required"`
+}
+
+//easyjson:json
+type GameOver struct {
+	Winner bool `json:"winner,required"` // true - вы, false - ваш соперник
+	From   int  `json:"from,required"`
+	To     int  `json:"to,required"`
 }
 
 type ErrorMessage string
@@ -81,6 +95,6 @@ func (em ErrorMessage) MarshalJSON() ([]byte, error) { // easyjson не захо
 
 //easyjson:json
 type ServerResponse struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
+	Status  string `json:"status,required"`
+	Message string `json:"message,required"`
 }

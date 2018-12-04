@@ -28,7 +28,7 @@ const (
 
 func Worker(token string) (login string, avatar string, err error) {
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	conn, err := grpc.Dial(address, grpc.WithInsecure()) //TODO : env
 	if err != nil {
 		err = errors.Wrap(err, "grpc_authorisation_client.go: Worker: can not connect: ")
 		return

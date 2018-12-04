@@ -24,14 +24,18 @@ type GameToConnect struct {
 // Оружие персонажа. Нападение на персонажа со флагом вызывает конец игры. Флаг не может нападать.
 type Weapon string // ∈ ["stone", "scissors", "paper", "flag"]
 
-func NewWeapon(key string) (weapon *Weapon, err error) {
+func NewWeapon(key string) (weapon Weapon, err error) {
 	switch key {
-	case "stone":
+	case "rock":
+		fallthrough
 	case "scissors":
+		fallthrough
 	case "paper":
+		fallthrough
 	case "flag":
+		weapon = Weapon(key)
 	default:
-		err = errors.New("'" + key + "' ∉ ['stone', 'scissors', 'paper', 'flag']")
+		err = errors.New("'" + key + "' ∉ ['rock', 'scissors', 'paper', 'flag']")
 	}
 	return
 }
@@ -39,12 +43,12 @@ func NewWeapon(key string) (weapon *Weapon, err error) {
 // true если превосходит передаваемое значение, false
 func (w *Weapon) IsExceed(rival Weapon) (exceed bool) {
 	switch *w {
-	case "stone":
+	case "rock":
 		exceed = rival == "scissors"
 	case "scissors":
 		exceed = rival == "paper"
 	case "paper":
-		exceed = rival == "stone"
+		exceed = rival == "rock"
 	}
 	return
 }
@@ -74,7 +78,24 @@ type Room struct {
 	User0UploadedCharacters bool
 	User1UploadedCharacters bool
 	UserTurnNumber          RoleId
-	// переменные для синхронизации мастера игры и читающих/пишуших горутин
+
+	// необходимые для перевыбора оружия состояния:
+	WeaponReElection struct {
+		// находится в состоянии перевыбора, ожидает пока оба клиента
+		// пришлют валидные данные на метод "reassign_weapons".
+		// можно прислать свой перевыбор только 1 раз
+		WaitingForIt bool
+		// нулевой пользователь перевыбрал
+		User0ReElect bool
+		// первый пользователь перевыбрал
+		User1ReElect bool
+		// атакующий персонаж
+		AttackingCharacter int
+		// атакуемый персонаж
+		AttackedCharacter int
+	}
+
+	// переменные для синхронизации мастера игры и читающих/пишуших в Websocket горутин:
 	User0From             chan []byte
 	User0To               chan []byte
 	User0IsAvailableRead  chan struct{}
@@ -119,10 +140,10 @@ func NewRoom(player0, player1 *user_connection.UserConnection) (room *Room) {
 func (r *Room) StopRoom() {
 	close(r.User0IsAvailableRead)
 	close(r.User0IsAvailableWrite)
-	r.User0.Connection.Close()
+	_ = r.User0.Connection.Close()
 	close(r.User1IsAvailableRead)
 	close(r.User1IsAvailableWrite)
-	r.User1.Connection.Close()
+	_ = r.User1.Connection.Close()
 	close(r.User0To)
 	close(r.User1To)
 	log.Print("room with User0.Token='" + r.User0.Token + "', r.User1.Token='" + r.User1.Token + "' closed")
@@ -135,7 +156,7 @@ func (r *Room) Reconnect(user *user_connection.UserConnection, role RoleId) {
 
 	if role == 0 {
 		if r.User0 != nil {
-			r.User0.Connection.Close()
+			_ = r.User0.Connection.Close()
 		}
 		r.User0 = user
 		// если в канале уже есть сигнал, пропускаем.
@@ -149,7 +170,7 @@ func (r *Room) Reconnect(user *user_connection.UserConnection, role RoleId) {
 		}
 	} else {
 		if r.User1 != nil {
-			r.User1.Connection.Close()
+			_ = r.User1.Connection.Close()
 		}
 		r.User1 = user
 		// если в канале уже есть сигнал, пропускаем.
@@ -174,12 +195,14 @@ func (r *Room) WebSocketReader(role RoleId) {
 		for {
 			_, message, err := r.User0.Connection.ReadMessage()
 			if err != nil {
+				log.Print("Error from user role 0 with Token '" + r.User0.Token + "': '" + err.Error() + "'.")
 				_, stillOpen := <-r.User0IsAvailableRead
 				if !stillOpen {
 					close(r.User0From)
 					break
 				}
 			} else {
+				log.Print("message from user role 0 with Token '" + r.User0.Token + "': '" + string(message) + "'.")
 				r.User0From <- message
 			}
 		}
@@ -187,12 +210,14 @@ func (r *Room) WebSocketReader(role RoleId) {
 		for {
 			_, message, err := r.User1.Connection.ReadMessage()
 			if err != nil {
+				log.Print("Error from user role 1 with Token '" + r.User0.Token + "': '" + err.Error() + "'.")
 				_, stillOpen := <-r.User1IsAvailableRead
 				if !stillOpen {
 					close(r.User1From)
 					break
 				}
 			} else {
+				log.Print("message from user role 1 with Token '" + r.User0.Token + "': '" + string(message) + "'.")
 				r.User1From <- message
 			}
 		}
@@ -216,7 +241,7 @@ func (r *Room) WebSocketWriter(role RoleId) {
 				}
 			}
 		}
-		r.User0.Connection.Close()
+		_ = r.User0.Connection.Close()
 	} else {
 	consistentMessageSending1:
 		for message := range r.User1To {
@@ -232,7 +257,7 @@ func (r *Room) WebSocketWriter(role RoleId) {
 				}
 			}
 		}
-		r.User1.Connection.Close()
+		_ = r.User1.Connection.Close()
 	}
 	return
 }
@@ -267,7 +292,7 @@ type RoomsManager struct {
 	// C timeout работает GameMaster: обновляет счётчик на каждое событие прихода данных.
 	// GameMaster содержит игровую логику, в один поток принимает/рассылает запросы, работает с
 	// картой, содержит JSPN RPC сервер, вызывающий функции объекта комнаты.
-	Rooms map[RoomId]*Room
+	Rooms map[RoomId]*Room // TODO: переделать на sync.map, для того, что бы корректно удалить комнату.
 	// последний номер созданной комнаты, что бы поддерживать уникальность номеров
 	RoomNumber RoomId
 }

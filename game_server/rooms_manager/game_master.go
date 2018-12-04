@@ -9,6 +9,7 @@ import (
 )
 
 func (r *Room) GameMaster() {
+	log.Printf("start GameMaster for room: %#v", *r)
 	var message []byte
 	var role RoleId
 	for {
@@ -33,6 +34,7 @@ func (r *Room) GameMaster() {
 			} else {
 				r.User1To <- response
 			}
+			continue
 		}
 		if event.Method == "upload_map" {
 			err := r.UploadMap(role, event.Parameter)
@@ -76,8 +78,14 @@ func (r *Room) GameMaster() {
 				// TODO: отрегистировать в Rooms.
 				break
 			}
+			continue
+		}
+		if event.Method == "reassign_weapons" {
+			err = r.ReassignWeapons(role, event.Parameter)
+			// TODO check err
 		}
 	}
+	log.Printf("stop GameMaster for room: %#v", *r)
 	return
 }
 
@@ -95,23 +103,23 @@ func (r *Room) UploadMap(role RoleId, message easyjson.RawMessage) (err error) {
 			var numberOfFlags int
 			for i := 0; i <= 13; i++ {
 				j := 13 - i
-				var weapon *Weapon
+				var weapon Weapon
 				weapon, err = NewWeapon(uploadedMap.Weapons[i])
 				if err != nil {
 					err = errors.Wrap(err, "in NewWeapon: ")
 					return
 				}
-				if *weapon == "flag" {
+				if weapon == "flag" {
 					numberOfFlags++
 				}
 				r.Map[j] = &Сharacter{
-					Role:   0,
-					Weapon: *weapon,
+					Role:   role,
+					Weapon: weapon,
 				}
 			}
-			if numberOfFlags != 0 {
+			if numberOfFlags != 1 {
 				err = errors.New("map must contain exactly one flag, but " +
-					strconv.Itoa(numberOfFlags) + "found")
+					strconv.Itoa(numberOfFlags) + " found")
 				return
 			}
 			r.User0UploadedCharacters = true
@@ -125,23 +133,23 @@ func (r *Room) UploadMap(role RoleId, message easyjson.RawMessage) (err error) {
 			var numberOfFlags int
 			for i := 0; i <= 13; i++ {
 				j := 28 + i
-				var weapon *Weapon
+				var weapon Weapon
 				weapon, err = NewWeapon(uploadedMap.Weapons[i])
 				if err != nil {
 					err = errors.Wrap(err, "in NewWeapon: ")
 					return
 				}
-				if *weapon == "flag" {
+				if weapon == "flag" {
 					numberOfFlags++
 				}
 				r.Map[j] = &Сharacter{
-					Role:   0,
-					Weapon: *weapon,
+					Role:   role,
+					Weapon: weapon,
 				}
 			}
-			if numberOfFlags != 0 {
+			if numberOfFlags != 1 {
 				err = errors.New("map must contain exactly one flag, but " +
-					strconv.Itoa(int(numberOfFlags)) + "found")
+					strconv.Itoa(int(numberOfFlags)) + " found")
 				return
 			}
 			r.User1UploadedCharacters = true
@@ -170,22 +178,19 @@ func (r *Room) DownloadMap(role RoleId) {
 	if role == 0 {
 		downloadMap := types.DownloadMap{}
 		for i := 0; i <= 41; i++ {
-			j := 41 - i
-			if r.Map[j] == nil {
+
+			if r.Map[i] == nil {
 				continue
 			}
 			var cell = &types.MapCell{}
-			// Собственные персонажи всегда синие.
-			if r.Map[j].Role == role {
-				cell.Color = "blue"
-			} else {
-				cell.Color = "red"
-			}
+			// true, если собственный персонаж
+			cell.User = r.Map[i].Role == role
 			// оружие видно только если это собственный игрок или противник показал оружие.
-			if r.Map[j].Role == role || r.Map[j].ShowedWeapon {
-				weapon := string(r.Map[j].Weapon)
+			if r.Map[i].Role == role || r.Map[i].ShowedWeapon {
+				weapon := string(r.Map[i].Weapon)
 				cell.Weapon = &weapon
 			}
+			j := 41 - i
 			downloadMap[j] = cell
 		}
 		parameter, _ := downloadMap.MarshalJSON()
@@ -201,12 +206,8 @@ func (r *Room) DownloadMap(role RoleId) {
 				continue
 			}
 			var cell = &types.MapCell{}
-			// Собственные персонажи всегда синие.
-			if r.Map[i].Role == role {
-				cell.Color = "blue"
-			} else {
-				cell.Color = "red"
-			}
+			// true, если собственный персонаж
+			cell.User = r.Map[i].Role == role
 			// оружие видно только если это собственный игрок или противник показал оружие.
 			if r.Map[i].Role == role || r.Map[i].ShowedWeapon {
 				weapon := string(r.Map[i].Weapon)
@@ -267,21 +268,37 @@ func (r *Room) YourTurn(role RoleId) {
 // ответственность: принимает данные от пользователя, обрабатывает с учётом состояния,
 // изменяет согласно игровой механике карту (фактически содержит всю игру в себе 😮)
 // вызывает функции, отправляющие запросы.
-func (r *Room) AttemptGoToCell(role RoleId, message easyjson.RawMessage) (gameover bool, err error) {
+func (r *Room) AttemptGoToCell(role RoleId, message easyjson.RawMessage) (gameOver bool, err error) {
 	var attemptGoToCell types.AttemptGoToCell
 	err = attemptGoToCell.UnmarshalJSON(message)
 	if err != nil {
 		err = errors.Wrap(err, "in json.Unmarshal message into types.attemptGoToCell: ")
 		return
 	}
-	if role == 0 {
-		attemptGoToCell.From = 41 - attemptGoToCell.From
-		attemptGoToCell.To = 41 - attemptGoToCell.To
-	}
+	gameOver, err = r.AttemptGoToCellLogic(role, attemptGoToCell)
+	return
+}
 
+func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGoToCell) (gameOver bool, err error) {
+	// Что бы пользователю можно было сделать ход, нужно,
+	// что бы персонажи были загружены обоими игроками,
+	// не было спора про перевыбор оружия в данный момент неоконченного
+	// и был ход этого игрока.
 	if r.UserTurnNumber == role {
 		err = errors.New("it's not your turn now")
 		return
+	}
+	if r.User0UploadedCharacters && r.User1UploadedCharacters {
+		err = errors.New("The map is not loaded yet. Wait for it.")
+		return
+	}
+	if r.WeaponReElection.WaitingForIt {
+		err = errors.New("At the moment you need to reassign the weapon.")
+		return
+	}
+	if role == 0 {
+		attemptGoToCell.From = 41 - attemptGoToCell.From
+		attemptGoToCell.To = 41 - attemptGoToCell.To
 	}
 	if r.Map[attemptGoToCell.From] == nil {
 		err = errors.New("there is no character at " + strconv.Itoa(attemptGoToCell.From))
@@ -303,78 +320,142 @@ func (r *Room) AttemptGoToCell(role RoleId, message easyjson.RawMessage) (gameov
 		return
 	}
 	// если в целевой клетке враг
-	if r.Map[attemptGoToCell.To].Role != role {
-		// проверяем, нет ли там флага
-		if r.Map[attemptGoToCell.To].Weapon == "flag" {
-			r.Gameover(0, role)
-			r.Gameover(1, role)
-			gameover = true
-			// TODO: каскадный деструктор всего.
-			// TODO: запись в базу о конце игры.
-			return
+	if r.Map[attemptGoToCell.To].Role == role {
+		err = errors.New("attempt to attack yourself")
+		return
+	}
+	// проверяем, нет ли там флага
+	if r.Map[attemptGoToCell.To].Weapon == "flag" {
+		r.Gameover(0, role, attemptGoToCell.From, attemptGoToCell.To)
+		r.Gameover(1, role, attemptGoToCell.From, attemptGoToCell.To)
+		gameOver = true
+		// TODO: каскадный деструктор всего.
+		// TODO: запись в базу о конце игры.
+		return
+	}
+	// проверяем победу над обычным оружием.
+	if r.Map[attemptGoToCell.From].Weapon.IsExceed(r.Map[attemptGoToCell.To].Weapon) {
+		winnerWeapon := r.Map[attemptGoToCell.From].Weapon
+		loserWeapon := r.Map[attemptGoToCell.To].Weapon
+		// двигаем персонажа
+		r.Map[attemptGoToCell.To] = r.Map[attemptGoToCell.From]
+		// ставим, что оружие победителя спалилось.
+		r.Map[attemptGoToCell.To].ShowedWeapon = true
+		// меняем ход // TODO: Возможно, стоит использовать bool в качестве роли.
+		if r.UserTurnNumber == 0 {
+			r.UserTurnNumber = 1
+		} else {
+			r.UserTurnNumber = 0
 		}
-		// проверяем победу над обычным оружием.
-		if r.Map[attemptGoToCell.From].Weapon.IsExceed(r.Map[attemptGoToCell.To].Weapon) {
-			winnerWeapon := r.Map[attemptGoToCell.From].Weapon
-			loserWeapon := r.Map[attemptGoToCell.To].Weapon
-			// двигаем персонажа
-			r.Map[attemptGoToCell.To] = r.Map[attemptGoToCell.From]
-			// ставим, что оружие победителя спалилось.
-			r.Map[attemptGoToCell.To].ShowedWeapon = true
-			// меняем ход // TODO: Возможно, стоит использовать bool в качестве роли.
-			if r.UserTurnNumber == 0 {
-				r.UserTurnNumber = 1
-			} else {
-				r.UserTurnNumber = 0
-			}
-			// отсылаем изменения.
-			r.Attack(0, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
-			r.Attack(1, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
-			// отсылаем смену хода
-			r.YourTurn(0)
-			r.YourTurn(1)
-			return
+		// отсылаем изменения.
+		r.Attack(0, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
+		r.Attack(1, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
+		// отсылаем смену хода
+		r.YourTurn(0)
+		r.YourTurn(1)
+		return
+	}
+	// проверяем поражение
+	if r.Map[attemptGoToCell.To].Weapon.IsExceed(r.Map[attemptGoToCell.From].Weapon) {
+		winnerWeapon := r.Map[attemptGoToCell.To].Weapon
+		loserWeapon := r.Map[attemptGoToCell.From].Weapon
+		// убираем проигравшего нападавшего персонажа, победитель передвигается на клетку проигравшего.
+		r.Map[attemptGoToCell.From] = r.Map[attemptGoToCell.To]
+		// ставим, что оружие победителя спалилось.
+		r.Map[attemptGoToCell.From].ShowedWeapon = true
+		// меняем ход
+		if r.UserTurnNumber == 0 {
+			r.UserTurnNumber = 1
+		} else {
+			r.UserTurnNumber = 0
 		}
-		// проверяем поражение
-		if r.Map[attemptGoToCell.To].Weapon.IsExceed(r.Map[attemptGoToCell.From].Weapon) {
-			winnerWeapon := r.Map[attemptGoToCell.To].Weapon
-			loserWeapon := r.Map[attemptGoToCell.From].Weapon
-			// убираем проигравшего нападавшего персонажа, победитель передвигается на клетку проигравшего.
-			r.Map[attemptGoToCell.From] = r.Map[attemptGoToCell.To]
-			// ставим, что оружие победителя спалилось.
-			r.Map[attemptGoToCell.From].ShowedWeapon = true
-			// меняем ход
-			if r.UserTurnNumber == 0 {
-				r.UserTurnNumber = 1
-			} else {
-				r.UserTurnNumber = 0
-			}
-			// отсылаем изменения.
-			r.Attack(0, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
-			r.Attack(1, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
-			// отсылаем смену хода
-			r.YourTurn(0)
-			r.YourTurn(1)
-			return
+		// отсылаем изменения.
+		r.Attack(0, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
+		r.Attack(1, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
+		// отсылаем смену хода
+		r.YourTurn(0)
+		r.YourTurn(1)
+		return
+	}
+	// проверяем, что одинаковое оружие
+	if r.Map[attemptGoToCell.To].Weapon == r.Map[attemptGoToCell.From].Weapon {
+		// запускаем процедуру перевыбора.
+		r.WeaponReElection.WaitingForIt = true
+		r.WeaponReElection.User0ReElect = false
+		r.WeaponReElection.User1ReElect = false
+		r.WeaponReElection.AttackingCharacter = attemptGoToCell.From
+		r.WeaponReElection.AttackedCharacter = attemptGoToCell.To
+
+		// просим игроков перевыбрать оружие для своего персонажа
+		if r.UserTurnNumber == 0 {
+			r.WeaponChangeRequest(0, attemptGoToCell.From)
+			r.WeaponChangeRequest(1, attemptGoToCell.To)
+		} else {
+			r.WeaponChangeRequest(1, attemptGoToCell.From)
+			r.WeaponChangeRequest(0, attemptGoToCell.To)
 		}
-		if r.Map[attemptGoToCell.To].Weapon == (r.Map[attemptGoToCell.From].Weapon) {
-			// меняем ход
+		return
+	}
+	return
+}
+
+// ответственность: проводит загружает перевыбранное оружие,
+// вызывает AttemptGoToCell снова, как бужто перевыбора небыло.
+func (r *Room) ReassignWeapons(role RoleId, message easyjson.RawMessage) (err error) {
+	reassignWeapons := types.ReassignWeapons{}
+	err = reassignWeapons.UnmarshalJSON(message)
+	if err != nil {
+		err = errors.Wrap(err, "parsing error: ")
+		return
+	}
+	weapon, err := NewWeapon(reassignWeapons.NewWeapon)
+	if err != nil {
+		err = errors.Wrap(err, "incorrect weapon: ")
+		return
+	}
+	if weapon == "flag" {
+		err = errors.New("'flag' cannot be assigned during re-election.")
+		return
+	}
+	// загрузка произойдёт, если сервер ждёт её, и этот игрок ещё не загрузил ничего.
+	if !r.WeaponReElection.WaitingForIt {
+		err = errors.New("there is no requirement to re-select a weapon at the moment.")
+		return
+	}
+	if role == 0 {
+		reassignWeapons.CharacterPosition = 41 - reassignWeapons.CharacterPosition
+		if !r.WeaponReElection.User0ReElect {
 			if r.UserTurnNumber == 0 {
-				r.UserTurnNumber = 1
+				r.Map[r.WeaponReElection.AttackingCharacter].Weapon = weapon
+				r.WeaponReElection.User0ReElect = true
 			} else {
-				r.UserTurnNumber = 0
+				r.Map[r.WeaponReElection.AttackedCharacter].Weapon = weapon
+				r.WeaponReElection.User0ReElect = true
 			}
-			r.Map[attemptGoToCell.To].ShowedWeapon = true
-			r.Map[attemptGoToCell.From].ShowedWeapon = true
-			r.AddWeapon(r.Map[attemptGoToCell.To].Role, attemptGoToCell.From, r.Map[attemptGoToCell.From].Weapon)
-			r.AddWeapon(r.Map[attemptGoToCell.From].Role, attemptGoToCell.To, r.Map[attemptGoToCell.To].Weapon)
-			r.YourTurn(0)
-			r.YourTurn(1)
+		} else {
+			err = errors.New("You have already downloaded the re-selection.")
 			return
 		}
 	} else {
-		err = errors.New("attempt to attack yourself")
-		return
+		if !r.WeaponReElection.User1ReElect {
+			if r.UserTurnNumber != 0 {
+				r.Map[r.WeaponReElection.AttackingCharacter].Weapon = weapon
+				r.WeaponReElection.User1ReElect = true
+			} else {
+				r.Map[r.WeaponReElection.AttackedCharacter].Weapon = weapon
+				r.WeaponReElection.User1ReElect = true
+			}
+		} else {
+			err = errors.New("You have already downloaded the re-selection.")
+			return
+		}
+	}
+	if r.WeaponReElection.User0ReElect && r.WeaponReElection.User1ReElect {
+		_, err = r.AttemptGoToCellLogic(r.UserTurnNumber, types.AttemptGoToCell{From: r.WeaponReElection.AttackingCharacter, To: r.WeaponReElection.AttackedCharacter})
+		if err != nil {
+			// Тут точно не должно быть ошибки, которую можно обработать кодом.
+			panic(err)
+		}
 	}
 	return
 }
@@ -472,15 +553,39 @@ func (r *Room) AddWeapon(role RoleId, coordinates int, weapon Weapon) {
 	return
 }
 
+// ответственность: отправка запроса на перевыбор клиенту, не изменяет карту и состояния.
+func (r *Room) WeaponChangeRequest(role RoleId, characterOfPlayer int) {
+	if role == 0 {
+		characterOfPlayer = 41 - characterOfPlayer
+	}
+	response, _ := types.WeaponChangeRequest{
+		CharacterPosition: characterOfPlayer,
+	}.MarshalJSON()
+	response, _ = types.Event{
+		Method:    "weapon_change_request",
+		Parameter: response,
+	}.MarshalJSON()
+	if role == 0 {
+		r.User0To <- response
+	} else {
+		r.User1To <- response
+	}
+	return
+}
+
 // ответственность: сборка изменения для клиента, не изменяет карту и не прекращает игру.
 // считает, что карта уже изменена.
-func (r *Room) Gameover(role RoleId, winnerRole RoleId) {
-	var gameover types.Gameover
-	if role == winnerRole {
-		gameover.WinnerColor = "blue"
-	} else {
-		gameover.WinnerColor = "red"
+func (r *Room) Gameover(role RoleId, winnerRole RoleId, from int, to int) {
+	gameover := types.GameOver{
+		Winner: role == winnerRole,
+		From:   from,
+		To:     to,
 	}
+	if role == 0 {
+		gameover.From = 41 - from
+		gameover.To = 41 - to
+	}
+
 	response, _ := gameover.MarshalJSON()
 	response, _ = types.Event{
 		Method:    "gameover",

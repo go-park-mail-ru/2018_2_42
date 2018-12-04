@@ -262,6 +262,15 @@ for positionId := 0; positionId <= 41; positionId++ {
 }
 
 {
+  "reassign_weapons": "reassign_weapons",
+  "parameter": {
+      "new_weapon": "rock",   // просто строка с оружием. флаг назначить нельзя.
+      "character_position": 1 // позиция персонажа, которому меняют оружие.
+                              // сервер не полагается на это число, только проверяет.
+  }
+}
+
+{
   "method": "download_map",
   "parameter": [
     {
@@ -431,7 +440,14 @@ for positionId := 0; positionId <= 41; positionId++ {
 }
 
 {
-  "method": "gameover",
+  "method": "weapon_change_request",
+  "parameter": {
+    "character_position": 1
+  }
+}
+
+{
+  "method": "game_over",
   "parameter": {
     "winner": true, // true - вы, false - ваш соперник.
     "from": positionId,
