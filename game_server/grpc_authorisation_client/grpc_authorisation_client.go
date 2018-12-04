@@ -9,8 +9,6 @@ import (
 	"log"
 	"net/http"
 	"time"
-
-	pb "github.com/go-park-mail-ru/2018_2_42/grpc_shared_code"
 )
 
 type DetailedError struct {
@@ -34,12 +32,12 @@ func Worker(token string) (login string, avatar string, err error) {
 		return
 	}
 	defer conn.Close()
-	c := pb.NewAuthorizationCheckClient(conn)
+	c := NewAuthorizationCheckClient(conn)
 
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	user, err := c.GetLogin(ctx, &pb.Cookie{Sessionid: token})
+	user, err := c.GetLogin(ctx, &Cookie{Sessionid: token})
 	if err != nil {
 		errStatus, _ := status.FromError(err)
 		if errStatus.Code() == codes.NotFound {
