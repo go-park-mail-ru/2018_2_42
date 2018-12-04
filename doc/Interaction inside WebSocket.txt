@@ -256,8 +256,8 @@ for positionId := 0; positionId <= 41; positionId++ {
 {
   "method": "attempt_go_to_cell",
   "parameter": {
-    "from": positionId
-    "to": positionId
+    "from": 31,
+    "to": 24
   }
 }
 
@@ -412,8 +412,8 @@ for positionId := 0; positionId <= 41; positionId++ {
 {
   "method": "move_character",
   "parameter": {
-    "from": positionId,
-    "to": positionId
+    "from": 32,
+    "to": 24
   }
 }
 

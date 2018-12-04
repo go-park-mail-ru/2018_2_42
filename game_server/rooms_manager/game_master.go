@@ -1,11 +1,13 @@
 package rooms_manager
 
 import (
-	"github.com/go-park-mail-ru/2018_2_42/game_server/types"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mailru/easyjson"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"strconv"
+
+	"github.com/go-park-mail-ru/2018_2_42/game_server/types"
 )
 
 func (r *Room) GameMaster() {
@@ -83,6 +85,18 @@ func (r *Room) GameMaster() {
 		if event.Method == "reassign_weapons" {
 			err = r.ReassignWeapons(role, event.Parameter)
 			// TODO check err
+		}
+		// если ни один из трёх методов не отработал, прислали меверный метод, кидаем ошибку
+		spew.Dump("Full condition of the room: %#v", *r)
+		response, _ := types.Event{
+			Method: "error_message",
+			Parameter: easyjson.RawMessage("unknown method '" + event.Method + "', " +
+				"available only ['attempt_go_to_cell', 'upload_map', 'reassign_weapons']."),
+		}.MarshalJSON()
+		if role == 0 {
+			r.User0To <- response
+		} else {
+			r.User1To <- response
 		}
 	}
 	log.Printf("stop GameMaster for room: %#v", *r)
@@ -275,6 +289,11 @@ func (r *Room) AttemptGoToCell(role RoleId, message easyjson.RawMessage) (gameOv
 		err = errors.Wrap(err, "in json.Unmarshal message into types.attemptGoToCell: ")
 		return
 	}
+	err = attemptGoToCell.Check()
+	if err != nil {
+		err = errors.Wrap(err, "invalid coordinates: ")
+		return
+	}
 	gameOver, err = r.AttemptGoToCellLogic(role, attemptGoToCell)
 	return
 }
@@ -284,11 +303,11 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 	// что бы персонажи были загружены обоими игроками,
 	// не было спора про перевыбор оружия в данный момент неоконченного
 	// и был ход этого игрока.
-	if r.UserTurnNumber == role {
+	if r.UserTurnNumber != role {
 		err = errors.New("it's not your turn now")
 		return
 	}
-	if r.User0UploadedCharacters && r.User1UploadedCharacters {
+	if !r.User0UploadedCharacters || !r.User1UploadedCharacters {
 		err = errors.New("The map is not loaded yet. Wait for it.")
 		return
 	}
@@ -313,6 +332,11 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 	// перемещает персонажа на сервере и клиентах.
 	if r.Map[attemptGoToCell.To] == nil {
 		r.Map[attemptGoToCell.To], r.Map[attemptGoToCell.From] = r.Map[attemptGoToCell.From], nil
+		if r.UserTurnNumber == 0 {
+			r.UserTurnNumber = 1
+		} else {
+			r.UserTurnNumber = 0
+		}
 		r.MoveCharacter(0, attemptGoToCell.From, attemptGoToCell.To)
 		r.MoveCharacter(1, attemptGoToCell.From, attemptGoToCell.To)
 		r.YourTurn(0)
@@ -386,7 +410,7 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 		r.WeaponReElection.AttackingCharacter = attemptGoToCell.From
 		r.WeaponReElection.AttackedCharacter = attemptGoToCell.To
 
-		// просим игроков перевыбрать оружие для своего персонажа
+		// просим игроков перевыбрать оружие для своего персонажа, ход не меняется.
 		if r.UserTurnNumber == 0 {
 			r.WeaponChangeRequest(0, attemptGoToCell.From)
 			r.WeaponChangeRequest(1, attemptGoToCell.To)

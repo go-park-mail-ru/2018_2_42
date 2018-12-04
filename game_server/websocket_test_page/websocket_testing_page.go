@@ -22,47 +22,95 @@ body {
     flex-grow: 1;
     justify-content: center;
     align-items: center;
-	background-color: #2e3436;
-	font-family: "Arial", sans-serif;
-	color: #babdb6;
-	font-size: 1.3rem;
+    background-color: #2e3436;
+    font-family: "Arial", sans-serif;
+    color: #babdb6;
+    font-size: 1rem;
 }
+
 main {
     width: 40rem;
     display: flex;
     flex-direction: column;
 }
-button {
+button:hover {
+    color: #ffffff;
+}
+.main-button {
     display: flex;
-	cursor: pointer;
+    cursor: pointer;
+    margin: 0.2rem 0 0.2rem 0;
+    background-color: #272c2d;
+    border-radius: 0.5rem;
+    color: inherit;
+    border: none;
+    font-size: inherit;
+    padding: 0.5rem;
 }
 button::-moz-focus-inner {
-  border: 0;
+    border: 0;
+}
+.dispatch-container {
+    position: relative;
+}
+.hanging-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 1rem;
+    background-color: #2e3436;
+    font-size: inherit;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    padding: 0.2rem;
+	color: inherit;
 }
 textarea {
-    display: flex;
-    min-height: 15rem;
-	resize: vertical;
-	font-family: "DejaVu Sans Mono", monospace;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 5rem;
+    resize: vertical;
+    font-family: "DejaVu Sans Mono", monospace;
 }
-.decoration {
-	margin: 0.2rem 0 0.2rem 0;
-	background-color: #272c2d;
-	border-radius: 0.5rem;
-	color: inherit;
-	border: none;
-	font-size: inherit;
-	padding: 0.2rem;
+.decorated-text {
+    margin: 0.2rem 0 0.2rem 0;
+    background-color: #272c2d;
+    border-radius: 0.5rem 0.5rem 0 0.5rem;
+    color: inherit;
+    border: none;
+    font-size: inherit;
+    padding: 0.5rem;
+}
+#incoming-data {
+    min-height: 40rem;
 }
     </style>
 </head>
 <body>
 <main>
-    <button id="connect" class="decoration">Connect</button>
-    <button id="disconnect" class="decoration">Disconnect</button>
-    <textarea id="sent-data" class="decoration" placeholder="Отправляемые через websocket данные."></textarea>
-	<button id="send" class="decoration">Send</button>
-    <textarea id="incoming-data" class="decoration" placeholder="Присылаемые сервером данные."></textarea>
+    <button id="connect" class="main-button">Connect</button>
+    <button id="disconnect" class="main-button">Disconnect</button>
+    <div class="dispatch-container">
+        <textarea id="sent-data-0" class="decorated-text" placeholder="Отправляемые через websocket данные."></textarea>
+        <button id="send-0" class="hanging-button">Send</button>
+    </div>
+    <div class="dispatch-container">
+        <textarea id="sent-data-1" class="decorated-text" placeholder="Отправляемые через websocket данные."></textarea>
+        <button id="send-1" class="hanging-button">Send</button>
+    </div>
+    <div class="dispatch-container">
+        <textarea id="sent-data-2" class="decorated-text" placeholder="Отправляемые через websocket данные."></textarea>
+        <button id="send-2" class="hanging-button">Send</button>
+    </div>
+    <div class="dispatch-container">
+        <textarea id="sent-data-3" class="decorated-text" placeholder="Отправляемые через websocket данные."></textarea>
+        <button id="send-3" class="hanging-button">Send</button>
+    </div>
+    <div class="dispatch-container">
+        <textarea id="sent-data-4" class="decorated-text" placeholder="Отправляемые через websocket данные."></textarea>
+        <button id="send-4" class="hanging-button">Send</button>
+    </div>
+    <textarea id="incoming-data" class="decorated-text" placeholder="Присылаемые сервером данные."></textarea>
 </main>
 <script defer type="application/javascript">
 "use strict";
@@ -107,13 +155,15 @@ document.querySelector("#disconnect").addEventListener("click", (event) => {
     socket.close();
 });
 
-document.querySelector("#send").addEventListener("click", (event) => {
-    socket.send(document.querySelector("#sent-data").value);
-});
+for (const i of ["0", "1", "2", "3", "4"]){
+    document.querySelector("#send-"+i).addEventListener("click", (event) => {
+        socket.send(document.querySelector("#sent-data-"+i).value);
+    });
+}
 </script>
 </body>
 </html>
-`)
+    `)
 	w.Header().Add("Content-Type", "text/html;charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(html)

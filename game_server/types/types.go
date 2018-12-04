@@ -6,6 +6,8 @@ package types
 
 import (
 	"github.com/mailru/easyjson"
+	"github.com/pkg/errors"
+	"strconv"
 )
 
 // первый уровень парсинга
@@ -28,6 +30,21 @@ type UploadMap struct {
 type AttemptGoToCell struct {
 	From int `json:"from,required"`
 	To   int `json:"to,required"`
+}
+
+func (a *AttemptGoToCell) Check() (err error) {
+	if a.From < 0 && 41 < a.From && a.To < 0 && 41 < a.To {
+		err = errors.New(strconv.Itoa(a.From) + " or " + strconv.Itoa(a.To) + " out of range.")
+	}
+	switch a.From - a.To {
+	case -7: // ⍗
+	case -1: // ⍈
+	case 1: // ⍇
+	case 7: // ⍐
+	default:
+		err = errors.New(strconv.Itoa(a.From) + " and " + strconv.Itoa(a.To) + " not in adjacent cells.")
+	}
+	return
 }
 
 //easyjson:json
