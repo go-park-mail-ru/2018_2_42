@@ -84,7 +84,22 @@ func (r *Room) GameMaster() {
 		}
 		if event.Method == "reassign_weapons" {
 			err = r.ReassignWeapons(role, event.Parameter)
-			// TODO check err
+			if err != nil {
+				response, _ := types.ErrorMessage("error while process 'reassign_weapons': " + err.Error()).MarshalJSON()
+				response, _ = types.Event{
+					Method:    "error_message",
+					Parameter: response,
+				}.MarshalJSON()
+				if role == 0 {
+					r.User0To <- response
+				} else {
+					r.User1To <- response
+				}
+				if r.User0UploadedCharacters && r.User1UploadedCharacters {
+					r.DownloadMap(role)
+				}
+			}
+			continue
 		}
 		// если ни один из трёх методов не отработал, прислали меверный метод, кидаем ошибку
 		spew.Dump("Full condition of the room: %#v", *r)
