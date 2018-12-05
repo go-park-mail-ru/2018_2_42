@@ -63,7 +63,11 @@ type MapCell struct {
 //easyjson:json
 type DownloadMap [42]*MapCell
 
-type YourRival []byte
+type YourRival string
+
+func (yr YourRival) MarshalJSON() ([]byte, error) { // easyjson не захотел работать со string
+	return []byte("\"" + yr + "\""), nil
+}
 
 type YourTurn bool
 

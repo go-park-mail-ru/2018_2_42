@@ -242,14 +242,14 @@ func (r *Room) DownloadMap(role RoleId) {
 // ответственность: отправляет описание соперника, не изменяет карту.
 func (r *Room) YourRival(role RoleId) {
 	if role == 0 {
-		response := types.YourRival(r.User1.Login)
+		response, _ := types.YourRival(r.User1.Login).MarshalJSON()
 		response, _ = types.Event{
 			Method:    "your_rival",
 			Parameter: []byte(response),
 		}.MarshalJSON()
 		r.User1To <- response
 	} else {
-		response := types.YourRival(r.User0.Login)
+		response, _ := types.YourRival(r.User0.Login).MarshalJSON()
 		response, _ = types.Event{
 			Method:    "your_rival",
 			Parameter: []byte(response),
