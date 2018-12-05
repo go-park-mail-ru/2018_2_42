@@ -18,7 +18,7 @@ RUN go get -v \
 # копируем исходники
 COPY '.' "${GOPATH}/src/github.com/go-park-mail-ru/2018_2_42/game_server/"
 # компилируем сервер
-RUN go build -o '/go/bin/game_serwer' 'github.com/go-park-mail-ru/2018_2_42/game_server';
+RUN go build -o '/go/bin/game_server' 'github.com/go-park-mail-ru/2018_2_42/game_server';
 # сделать порт доступным.
 EXPOSE 8080
 # При запуске контейнера запустить сервер
