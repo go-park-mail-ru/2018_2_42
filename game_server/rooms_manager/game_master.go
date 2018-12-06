@@ -377,7 +377,8 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 		winnerWeapon := r.Map[attemptGoToCell.From].Weapon
 		loserWeapon := r.Map[attemptGoToCell.To].Weapon
 		// двигаем персонажа
-		r.Map[attemptGoToCell.To], r.Map[attemptGoToCell.From] = r.Map[attemptGoToCell.From], nil
+		r.Map[attemptGoToCell.To] = r.Map[attemptGoToCell.From]
+		r.Map[attemptGoToCell.From] = nil
 		// ставим, что оружие победителя спалилось.
 		r.Map[attemptGoToCell.To].ShowedWeapon = true
 		// меняем ход // TODO: Возможно, стоит использовать bool в качестве роли.
@@ -409,8 +410,8 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 			r.UserTurnNumber = 0
 		}
 		// отсылаем изменения.
-		r.Attack(0, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
-		r.Attack(1, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
+		r.Attack(0, attemptGoToCell.To, winnerWeapon, attemptGoToCell.From, loserWeapon)
+		r.Attack(1, attemptGoToCell.To, winnerWeapon, attemptGoToCell.From, loserWeapon)
 		// отсылаем смену хода
 		r.YourTurn(0)
 		r.YourTurn(1)
@@ -527,7 +528,8 @@ func (r *Room) MoveCharacter(role RoleId, from int, to int) {
 }
 
 // ответственность: сборка изменения для клиента, не изменяет карту.
-// считает, что карта уже изменена. Вращает для нулевого игрока.
+// считает, что карта уже изменена, поэтому не берёт ничего оттуда, там nil в качестве проигравшего.
+// Вращает для нулевого игрока.
 func (r *Room) Attack(role RoleId, winner int, winnerWeapon Weapon, loser int, loserWeapon Weapon) {
 	if role == 0 {
 		response, _ := types.Attack{
