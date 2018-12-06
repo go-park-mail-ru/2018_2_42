@@ -358,7 +358,7 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 		r.YourTurn(1)
 		return
 	}
-	// если в целевой клетке враг
+	// если в целевой клетке ты
 	if r.Map[attemptGoToCell.To].Role == role {
 		err = errors.New("attempt to attack yourself")
 		return
@@ -377,7 +377,7 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 		winnerWeapon := r.Map[attemptGoToCell.From].Weapon
 		loserWeapon := r.Map[attemptGoToCell.To].Weapon
 		// двигаем персонажа
-		r.Map[attemptGoToCell.To] = r.Map[attemptGoToCell.From]
+		r.Map[attemptGoToCell.To], r.Map[attemptGoToCell.From] = r.Map[attemptGoToCell.From], nil
 		// ставим, что оружие победителя спалилось.
 		r.Map[attemptGoToCell.To].ShowedWeapon = true
 		// меняем ход // TODO: Возможно, стоит использовать bool в качестве роли.
@@ -399,9 +399,9 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 		winnerWeapon := r.Map[attemptGoToCell.To].Weapon
 		loserWeapon := r.Map[attemptGoToCell.From].Weapon
 		// убираем проигравшего нападавшего персонажа, победитель передвигается на клетку проигравшего.
-		r.Map[attemptGoToCell.From] = r.Map[attemptGoToCell.To]
+		r.Map[attemptGoToCell.From] = nil
 		// ставим, что оружие победителя спалилось.
-		r.Map[attemptGoToCell.From].ShowedWeapon = true
+		r.Map[attemptGoToCell.To].ShowedWeapon = true
 		// меняем ход
 		if r.UserTurnNumber == 0 {
 			r.UserTurnNumber = 1
