@@ -39,8 +39,8 @@ func (a *AttemptGoToCell) Check() (err error) {
 	switch a.From - a.To {
 	case -7: // ⍗
 	case -1: // ⍈
-	case 1: // ⍇
-	case 7: // ⍐
+	case +1: // ⍇
+	case +7: // ⍐
 	default:
 		err = errors.New(strconv.Itoa(a.From) + " and " + strconv.Itoa(a.To) + " not in adjacent cells.")
 	}
@@ -77,9 +77,9 @@ type MoveCharacter struct {
 	To   int `json:"to,required"`
 }
 
+// type for struct Attack only
 //easyjson:json
 type AttackingСharacter struct {
-	// type for Attack only
 	Coordinates int    `json:"coordinates,required"`
 	Weapon      string `json:"weapon,required"`
 }

@@ -1,6 +1,7 @@
 package rooms_manager
 
 import (
+	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mailru/easyjson"
 	"github.com/pkg/errors"
@@ -130,7 +131,7 @@ func (r *Room) UploadMap(role RoleId, message easyjson.RawMessage) (err error) {
 		if !r.User0UploadedCharacters {
 			// uploadedMap.Weapons для клеток 13 12 11 10 9 8 7 6 5 4 3 2 1 0
 			var numberOfFlags int
-			for i := 0; i <= 13; i++ {
+			for i := 0; i < 14; i++ {
 				j := 13 - i
 				var weapon Weapon
 				weapon, err = NewWeapon(uploadedMap.Weapons[i])
@@ -160,7 +161,7 @@ func (r *Room) UploadMap(role RoleId, message easyjson.RawMessage) (err error) {
 		if !r.User1UploadedCharacters {
 			// 28 29 30 31 32 33 34 35 36 37 38 39 40 41
 			var numberOfFlags int
-			for i := 0; i <= 13; i++ {
+			for i := 0; i < 14; i++ {
 				j := 28 + i
 				var weapon Weapon
 				weapon, err = NewWeapon(uploadedMap.Weapons[i])
@@ -203,52 +204,32 @@ func (r *Room) UploadMap(role RoleId, message easyjson.RawMessage) (err error) {
 
 // ответственность: отправляет карту на клиент, не изменяет карту.
 func (r *Room) DownloadMap(role RoleId) {
-	// нужно ли переворачивать текст
-	if role == 0 {
-		downloadMap := types.DownloadMap{}
-		for i := 0; i <= 41; i++ {
-
-			if r.Map[i] == nil {
-				continue
-			}
-			var cell = &types.MapCell{}
-			// true, если собственный персонаж
-			cell.User = r.Map[i].Role == role
-			// оружие видно только если это собственный игрок или противник показал оружие.
-			if r.Map[i].Role == role || r.Map[i].ShowedWeapon {
-				weapon := string(r.Map[i].Weapon)
-				cell.Weapon = &weapon
-			}
-			j := 41 - i
-			downloadMap[j] = cell
+	downloadMap := types.DownloadMap{}
+	for i := 0; i < len(r.Map); i++ {
+		if r.Map[i] == nil {
+			continue
 		}
-		parameter, _ := downloadMap.MarshalJSON()
-		response, _ := types.Event{
-			Method:    "download_map",
-			Parameter: parameter,
-		}.MarshalJSON()
+		var cell = &types.MapCell{}
+		// true, если собственный персонаж
+		cell.User = r.Map[i].Role == role
+		// оружие видно только если это собственный игрок или противник показал оружие.
+		if r.Map[i].Role == role || r.Map[i].ShowedWeapon {
+			weapon := string(r.Map[i].Weapon)
+			cell.Weapon = &weapon
+		}
+		downloadMap[i] = cell
+	}
+	if role == 0 {
+		downloadMap.Rotate()
+	}
+	parameter, _ := downloadMap.MarshalJSON()
+	response, _ := types.Event{
+		Method:    "download_map",
+		Parameter: parameter,
+	}.MarshalJSON()
+	if role == 0 {
 		r.User0To <- response
 	} else {
-		downloadMap := types.DownloadMap{}
-		for i := 0; i <= 41; i++ {
-			if r.Map[i] == nil {
-				continue
-			}
-			var cell = &types.MapCell{}
-			// true, если собственный персонаж
-			cell.User = r.Map[i].Role == role
-			// оружие видно только если это собственный игрок или противник показал оружие.
-			if r.Map[i].Role == role || r.Map[i].ShowedWeapon {
-				weapon := string(r.Map[i].Weapon)
-				cell.Weapon = &weapon
-			}
-			downloadMap[i] = cell
-		}
-		parameter, _ := downloadMap.MarshalJSON()
-		response, _ := types.Event{
-			Method:    "download_map",
-			Parameter: parameter,
-		}.MarshalJSON()
 		r.User1To <- response
 	}
 	return
@@ -309,11 +290,14 @@ func (r *Room) AttemptGoToCell(role RoleId, message easyjson.RawMessage) (gameOv
 		err = errors.Wrap(err, "invalid coordinates: ")
 		return
 	}
-	gameOver, err = r.AttemptGoToCellLogic(role, attemptGoToCell)
+	if role == 0 {
+		attemptGoToCell.Rotate()
+	}
+	gameOver, err = r.AttemptGoToCellLogic(role, attemptGoToCell.From, attemptGoToCell.To)
 	return
 }
 
-func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGoToCell) (gameOver bool, err error) {
+func (r *Room) AttemptGoToCellLogic(role RoleId, from int, to int) (gameOver bool, err error) {
 	// Что бы пользователю можно было сделать ход, нужно,
 	// что бы персонажи были загружены обоими игроками,
 	// не было спора про перевыбор оружия в данный момент неоконченного
@@ -327,60 +311,56 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 		return
 	}
 	if r.WeaponReElection.WaitingForIt {
-		err = errors.New("At the moment you need to reassign the weapon.")
+		err = errors.New("At that moment you still need to reassign the weapon.")
 		return
 	}
-	if role == 0 {
-		attemptGoToCell.From = 41 - attemptGoToCell.From
-		attemptGoToCell.To = 41 - attemptGoToCell.To
-	}
-	if r.Map[attemptGoToCell.From] == nil {
-		err = errors.New("there is no character at " + strconv.Itoa(attemptGoToCell.From))
+	if r.Map[from] == nil {
+		err = errors.New("there is no character at " + strconv.Itoa(from))
 		return
 	}
-	if r.Map[attemptGoToCell.From].Role != role {
-		err = errors.New("this is not your character at " + strconv.Itoa(attemptGoToCell.From))
+	if r.Map[from].Role != role {
+		err = errors.New("this is not your character at " + strconv.Itoa(from))
 		return
 	}
 	// Тут точно существующий персонаж, принадлежащий игроку.
 	// Сервер смотрит, куда перемещается персонаж и, если целевая клетка пуста,
 	// перемещает персонажа на сервере и клиентах.
-	if r.Map[attemptGoToCell.To] == nil {
-		r.Map[attemptGoToCell.To], r.Map[attemptGoToCell.From] = r.Map[attemptGoToCell.From], nil
+	if r.Map[to] == nil {
+		r.Map[to], r.Map[from] = r.Map[from], nil
 		if r.UserTurnNumber == 0 {
 			r.UserTurnNumber = 1
 		} else {
 			r.UserTurnNumber = 0
 		}
-		r.MoveCharacter(0, attemptGoToCell.From, attemptGoToCell.To)
-		r.MoveCharacter(1, attemptGoToCell.From, attemptGoToCell.To)
+		r.MoveCharacter(0, from, to)
+		r.MoveCharacter(1, from, to)
 		r.YourTurn(0)
 		r.YourTurn(1)
 		return
 	}
 	// если в целевой клетке ты
-	if r.Map[attemptGoToCell.To].Role == role {
+	if r.Map[to].Role == role {
 		err = errors.New("attempt to attack yourself")
 		return
 	}
 	// проверяем, нет ли там флага
-	if r.Map[attemptGoToCell.To].Weapon == "flag" {
-		r.Gameover(0, role, attemptGoToCell.From, attemptGoToCell.To)
-		r.Gameover(1, role, attemptGoToCell.From, attemptGoToCell.To)
+	if r.Map[to].Weapon == "flag" {
+		r.Gameover(0, role, from, to)
+		r.Gameover(1, role, from, to)
 		gameOver = true
 		// TODO: каскадный деструктор всего.
 		// TODO: запись в базу о конце игры.
 		return
 	}
 	// проверяем победу над обычным оружием.
-	if r.Map[attemptGoToCell.From].Weapon.IsExceed(r.Map[attemptGoToCell.To].Weapon) {
-		winnerWeapon := r.Map[attemptGoToCell.From].Weapon
-		loserWeapon := r.Map[attemptGoToCell.To].Weapon
+	if r.Map[from].Weapon.IsExceed(r.Map[to].Weapon) {
+		winnerWeapon := r.Map[from].Weapon
+		loserWeapon := r.Map[to].Weapon
 		// двигаем персонажа
-		r.Map[attemptGoToCell.To] = r.Map[attemptGoToCell.From]
-		r.Map[attemptGoToCell.From] = nil
+		r.Map[to] = r.Map[from]
+		r.Map[from] = nil
 		// ставим, что оружие победителя спалилось.
-		r.Map[attemptGoToCell.To].ShowedWeapon = true
+		r.Map[to].ShowedWeapon = true
 		// меняем ход // TODO: Возможно, стоит использовать bool в качестве роли.
 		if r.UserTurnNumber == 0 {
 			r.UserTurnNumber = 1
@@ -388,21 +368,21 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 			r.UserTurnNumber = 0
 		}
 		// отсылаем изменения.
-		r.Attack(0, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
-		r.Attack(1, attemptGoToCell.From, winnerWeapon, attemptGoToCell.To, loserWeapon)
+		r.Attack(0, from, winnerWeapon, to, loserWeapon)
+		r.Attack(1, from, winnerWeapon, to, loserWeapon)
 		// отсылаем смену хода
 		r.YourTurn(0)
 		r.YourTurn(1)
 		return
 	}
 	// проверяем поражение
-	if r.Map[attemptGoToCell.To].Weapon.IsExceed(r.Map[attemptGoToCell.From].Weapon) {
-		winnerWeapon := r.Map[attemptGoToCell.To].Weapon
-		loserWeapon := r.Map[attemptGoToCell.From].Weapon
+	if r.Map[to].Weapon.IsExceed(r.Map[from].Weapon) {
+		winnerWeapon := r.Map[to].Weapon
+		loserWeapon := r.Map[from].Weapon
 		// убираем проигравшего нападавшего персонажа, победитель передвигается на клетку проигравшего.
-		r.Map[attemptGoToCell.From] = nil
+		r.Map[from] = nil
 		// ставим, что оружие победителя спалилось.
-		r.Map[attemptGoToCell.To].ShowedWeapon = true
+		r.Map[to].ShowedWeapon = true
 		// меняем ход
 		if r.UserTurnNumber == 0 {
 			r.UserTurnNumber = 1
@@ -410,29 +390,31 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, attemptGoToCell types.AttemptGo
 			r.UserTurnNumber = 0
 		}
 		// отсылаем изменения.
-		r.Attack(0, attemptGoToCell.To, winnerWeapon, attemptGoToCell.From, loserWeapon)
-		r.Attack(1, attemptGoToCell.To, winnerWeapon, attemptGoToCell.From, loserWeapon)
+		r.Attack(0, to, winnerWeapon, from, loserWeapon)
+		r.Attack(1, to, winnerWeapon, from, loserWeapon)
 		// отсылаем смену хода
 		r.YourTurn(0)
 		r.YourTurn(1)
 		return
 	}
 	// проверяем, что одинаковое оружие
-	if r.Map[attemptGoToCell.To].Weapon == r.Map[attemptGoToCell.From].Weapon {
+	if r.Map[to].Weapon == r.Map[from].Weapon {
+		fmt.Print(r.Map)
+
 		// запускаем процедуру перевыбора.
 		r.WeaponReElection.WaitingForIt = true
 		r.WeaponReElection.User0ReElect = false
 		r.WeaponReElection.User1ReElect = false
-		r.WeaponReElection.AttackingCharacter = attemptGoToCell.From
-		r.WeaponReElection.AttackedCharacter = attemptGoToCell.To
+		r.WeaponReElection.AttackingCharacter = from
+		r.WeaponReElection.AttackedCharacter = to
 
 		// просим игроков перевыбрать оружие для своего персонажа, ход не меняется.
 		if r.UserTurnNumber == 0 {
-			r.WeaponChangeRequest(0, attemptGoToCell.From)
-			r.WeaponChangeRequest(1, attemptGoToCell.To)
+			r.WeaponChangeRequest(0, from)
+			r.WeaponChangeRequest(1, to)
 		} else {
-			r.WeaponChangeRequest(1, attemptGoToCell.From)
-			r.WeaponChangeRequest(0, attemptGoToCell.To)
+			r.WeaponChangeRequest(1, from)
+			r.WeaponChangeRequest(0, to)
 		}
 		return
 	}
@@ -463,15 +445,14 @@ func (r *Room) ReassignWeapons(role RoleId, message easyjson.RawMessage) (err er
 		return
 	}
 	if role == 0 {
-		reassignWeapons.CharacterPosition = 41 - reassignWeapons.CharacterPosition
+		reassignWeapons.Rotate()
 		if !r.WeaponReElection.User0ReElect {
 			if r.UserTurnNumber == 0 {
 				r.Map[r.WeaponReElection.AttackingCharacter].Weapon = weapon
-				r.WeaponReElection.User0ReElect = true
 			} else {
 				r.Map[r.WeaponReElection.AttackedCharacter].Weapon = weapon
-				r.WeaponReElection.User0ReElect = true
 			}
+			r.WeaponReElection.User0ReElect = true
 		} else {
 			err = errors.New("You have already downloaded the re-selection.")
 			return
@@ -480,20 +461,22 @@ func (r *Room) ReassignWeapons(role RoleId, message easyjson.RawMessage) (err er
 		if !r.WeaponReElection.User1ReElect {
 			if r.UserTurnNumber != 0 {
 				r.Map[r.WeaponReElection.AttackingCharacter].Weapon = weapon
-				r.WeaponReElection.User1ReElect = true
 			} else {
 				r.Map[r.WeaponReElection.AttackedCharacter].Weapon = weapon
-				r.WeaponReElection.User1ReElect = true
 			}
+			r.WeaponReElection.User1ReElect = true
 		} else {
 			err = errors.New("You have already downloaded the re-selection.")
 			return
 		}
 	}
 	if r.WeaponReElection.User0ReElect && r.WeaponReElection.User1ReElect {
-		_, err = r.AttemptGoToCellLogic(r.UserTurnNumber, types.AttemptGoToCell{From: r.WeaponReElection.AttackingCharacter, To: r.WeaponReElection.AttackedCharacter})
+		// то мы как будто бы проводим ход снова, как будто бы небыло перевыбора.
+		r.WeaponReElection.WaitingForIt = false
+		_, err = r.AttemptGoToCellLogic(r.UserTurnNumber, r.WeaponReElection.AttackingCharacter, r.WeaponReElection.AttackedCharacter)
 		if err != nil {
 			// Тут точно не должно быть ошибки, которую можно обработать кодом.
+			fmt.Print(r.Map)
 			panic(err)
 		}
 	}
@@ -503,26 +486,22 @@ func (r *Room) ReassignWeapons(role RoleId, message easyjson.RawMessage) (err er
 // ответственность: сформировать изменение для клиента, не изменяет карту.
 // считает, что карта уже изменена. Вращает для нулевого игрока.
 func (r *Room) MoveCharacter(role RoleId, from int, to int) {
+	moveCharacter := types.MoveCharacter{
+		From: from,
+		To:   to,
+	}
 	if role == 0 {
-		responce, _ := types.MoveCharacter{
-			From: 41 - from,
-			To:   41 - to,
-		}.MarshalJSON()
-		responce, _ = types.Event{
-			Method:    "move_character",
-			Parameter: responce,
-		}.MarshalJSON()
-		r.User0To <- responce
+		moveCharacter.Rotate()
+	}
+	response, _ := moveCharacter.MarshalJSON()
+	response, _ = types.Event{
+		Method:    "move_character",
+		Parameter: response,
+	}.MarshalJSON()
+	if role == 0 {
+		r.User0To <- response
 	} else {
-		responce, _ := types.MoveCharacter{
-			From: from,
-			To:   to,
-		}.MarshalJSON()
-		responce, _ = types.Event{
-			Method:    "move_character",
-			Parameter: responce,
-		}.MarshalJSON()
-		r.User1To <- responce
+		r.User1To <- response
 	}
 	return
 }
@@ -531,37 +510,27 @@ func (r *Room) MoveCharacter(role RoleId, from int, to int) {
 // считает, что карта уже изменена, поэтому не берёт ничего оттуда, там nil в качестве проигравшего.
 // Вращает для нулевого игрока.
 func (r *Room) Attack(role RoleId, winner int, winnerWeapon Weapon, loser int, loserWeapon Weapon) {
+	attack := types.Attack{
+		Winner: types.AttackingСharacter{
+			Coordinates: winner,
+			Weapon:      string(winnerWeapon),
+		},
+		Loser: types.AttackingСharacter{
+			Coordinates: loser,
+			Weapon:      string(loserWeapon),
+		},
+	}
 	if role == 0 {
-		response, _ := types.Attack{
-			Winner: types.AttackingСharacter{
-				Coordinates: 41 - winner,
-				Weapon:      string(winnerWeapon),
-			},
-			Loser: types.AttackingСharacter{
-				Coordinates: 41 - loser,
-				Weapon:      string(loserWeapon),
-			},
-		}.MarshalJSON()
-		response, _ = types.Event{
-			Method:    "attack",
-			Parameter: response,
-		}.MarshalJSON()
+		attack.Rotate()
+	}
+	response, _ := attack.MarshalJSON()
+	response, _ = types.Event{
+		Method:    "attack",
+		Parameter: response,
+	}.MarshalJSON()
+	if role == 0 {
 		r.User0To <- response
 	} else {
-		response, _ := types.Attack{
-			Winner: types.AttackingСharacter{
-				Coordinates: winner,
-				Weapon:      string(winnerWeapon),
-			},
-			Loser: types.AttackingСharacter{
-				Coordinates: loser,
-				Weapon:      string(loserWeapon),
-			},
-		}.MarshalJSON()
-		response, _ = types.Event{
-			Method:    "attack",
-			Parameter: response,
-		}.MarshalJSON()
 		r.User1To <- response
 	}
 	return
@@ -570,25 +539,21 @@ func (r *Room) Attack(role RoleId, winner int, winnerWeapon Weapon, loser int, l
 // ответственность: сборка изменения для клиента, не изменяет карту.
 // считает, что карта уже изменена. вращает для нулевого
 func (r *Room) AddWeapon(role RoleId, coordinates int, weapon Weapon) {
+	addWeapon := types.AddWeapon{
+		Coordinates: coordinates,
+		Weapon:      string(weapon),
+	}
 	if role == 0 {
-		response, _ := types.AddWeapon{
-			Coordinates: 41 - coordinates,
-			Weapon:      string(weapon),
-		}.MarshalJSON()
-		response, _ = types.Event{
-			Method:    "add_weapon",
-			Parameter: response,
-		}.MarshalJSON()
+		addWeapon.Rotate()
+	}
+	response, _ := addWeapon.MarshalJSON()
+	response, _ = types.Event{
+		Method:    "add_weapon",
+		Parameter: response,
+	}.MarshalJSON()
+	if role == 0 {
 		r.User0To <- response
 	} else {
-		response, _ := types.AddWeapon{
-			Coordinates: coordinates,
-			Weapon:      string(weapon),
-		}.MarshalJSON()
-		response, _ = types.Event{
-			Method:    "add_weapon",
-			Parameter: response,
-		}.MarshalJSON()
 		r.User1To <- response
 	}
 	return
@@ -596,12 +561,13 @@ func (r *Room) AddWeapon(role RoleId, coordinates int, weapon Weapon) {
 
 // ответственность: отправка запроса на перевыбор клиенту, не изменяет карту и состояния.
 func (r *Room) WeaponChangeRequest(role RoleId, characterOfPlayer int) {
-	if role == 0 {
-		characterOfPlayer = 41 - characterOfPlayer
-	}
-	response, _ := types.WeaponChangeRequest{
+	weaponChangeRequest := types.WeaponChangeRequest{
 		CharacterPosition: characterOfPlayer,
-	}.MarshalJSON()
+	}
+	if role == 0 {
+		weaponChangeRequest.Rotate()
+	}
+	response, _ := weaponChangeRequest.MarshalJSON()
 	response, _ = types.Event{
 		Method:    "weapon_change_request",
 		Parameter: response,
@@ -623,8 +589,7 @@ func (r *Room) Gameover(role RoleId, winnerRole RoleId, from int, to int) {
 		To:     to,
 	}
 	if role == 0 {
-		gameover.From = 41 - from
-		gameover.To = 41 - to
+		gameover.Rotate()
 	}
 
 	response, _ := gameover.MarshalJSON()

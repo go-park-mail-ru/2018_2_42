@@ -30,7 +30,7 @@ func main() {
 	}
 
 	//start grpc_authorisation worker
-	serverEnvironment := gRPCServer.ServerEnvironment(basicEnv)
+	serverEnvironment := gRPCServer.ServerEnvironment{basicEnv}
 	go func() {
 		log.Print("gRPCServer.Worker number start")
 		err := gRPCServer.Worker(&serverEnvironment)

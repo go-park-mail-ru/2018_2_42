@@ -14,7 +14,9 @@ import (
 	"github.com/go-park-mail-ru/2018_2_42/authorization_server/environment"
 )
 
-type ServerEnvironment environment.Environment
+type ServerEnvironment struct {
+	environment.Environment
+}
 
 func (se *ServerEnvironment) GetLogin(ctx context.Context, cookie *pb.Cookie) (user *pb.User, err error) {
 	exist, userInfo, err := se.DB.SelectUserBySessionId(cookie.Sessionid)

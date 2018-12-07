@@ -2,6 +2,7 @@ package rooms_manager
 
 import (
 	"errors"
+	"fmt"
 	"github.com/go-park-mail-ru/2018_2_42/game_server/user_connection"
 	"github.com/gorilla/websocket"
 	"log"
@@ -60,6 +61,34 @@ type Сharacter struct {
 	ShowedWeapon bool
 }
 
+func (c *Сharacter) String() (str string) {
+	if c == nil {
+		str = "            "
+	} else {
+		if c.Role == 0 {
+			str += "0 "
+		} else {
+			str += "1 "
+		}
+		switch c.Weapon {
+		case "rock":
+			str += "rock     "
+		case "scissors":
+			str += "scissors "
+		case "paper":
+			str += "paper    "
+		case "flag":
+			str += "flag     "
+		}
+		if c.ShowedWeapon {
+			str += "+"
+		} else {
+			str += "-"
+		}
+	}
+	return
+}
+
 // Карта в представлении сервера, координаты клеток 0 <= x <= 41, для пустых клеток nil.
 //[ 0,  1,  2,  3,  4,  5,  6,
 //  7,  8,  9, 10, 11, 12, 13,
@@ -68,6 +97,17 @@ type Сharacter struct {
 // 28, 29, 30, 31, 32, 33, 34,
 // 35, 36, 37, 38, 39, 40, 41]
 type Map [42]*Сharacter
+
+func (m Map) String() (str string) { // implement fmt.Stringer interface, called fmt.Print()
+	separator := "├────────────┼────────────┼────────────┼────────────┼────────────┼────────────┼────────────┤\n"
+	row := func(i int) string {
+		return fmt.Sprint("│", m[i], "│", m[i+1], "│", m[i+2], "│", m[i+3], "│", m[i+4], "│", m[i+5], "│", m[i+6], "│\n")
+	}
+	str = "┌────────────┬────────────┬────────────┬────────────┬────────────┬────────────┬────────────┐\n" +
+		row(0) + separator + row(7) + separator + row(14) + separator + row(21) + separator + row(28) + separator + row(35) +
+		"└────────────┴────────────┴────────────┴────────────┴────────────┴────────────┴────────────┘\n"
+	return
+}
 
 type Room struct {
 	// соединения с пользователями, могут подменятся во время игры
