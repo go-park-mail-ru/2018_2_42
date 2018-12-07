@@ -12,7 +12,6 @@ RUN go get -v \
     'github.com/pkg/errors'\
     'github.com/mailru/easyjson'\
     'github.com/gorilla/websocket'\
-    'github.com/davecgh/go-spew/spew'\
     'google.golang.org/grpc'\
     'github.com/golang/protobuf/proto';
 # копируем исходники

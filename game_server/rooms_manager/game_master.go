@@ -2,7 +2,6 @@ package rooms_manager
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/mailru/easyjson"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -103,7 +102,6 @@ func (r *Room) GameMaster() {
 			continue
 		}
 		// если ни один из трёх методов не отработал, прислали меверный метод, кидаем ошибку
-		spew.Dump("Full condition of the room: %#v", *r)
 		response, _ := types.Event{
 			Method: "error_message",
 			Parameter: easyjson.RawMessage("unknown method '" + event.Method + "', " +
@@ -345,10 +343,13 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, from int, to int) (gameOver boo
 	}
 	// проверяем, нет ли там флага
 	if r.Map[to].Weapon == "flag" {
+		log.Print("game over")
+		r.Attack(0, from, r.Map[from].Weapon, to, "flag")
+		r.Attack(1, from, r.Map[from].Weapon, to, "flag")
 		r.Gameover(0, role, from, to)
 		r.Gameover(1, role, from, to)
 		gameOver = true
-		// TODO: каскадный деструктор всего.
+		// TODO: каскадный деструктор всего, но не раньше, чем отработают отправляющие сообщения горутины.
 		// TODO: запись в базу о конце игры.
 		return
 	}
@@ -591,7 +592,6 @@ func (r *Room) Gameover(role RoleId, winnerRole RoleId, from int, to int) {
 	if role == 0 {
 		gameover.Rotate()
 	}
-
 	response, _ := gameover.MarshalJSON()
 	response, _ = types.Event{
 		Method:    "gameover",

@@ -180,10 +180,10 @@ func NewRoom(player0, player1 *user_connection.UserConnection) (room *Room) {
 func (r *Room) StopRoom() {
 	close(r.User0IsAvailableRead)
 	close(r.User0IsAvailableWrite)
-	_ = r.User0.Connection.Close()
+	// r.User0.Connection.Close() сделает WebSocketWriter(0) после отправки последнего сообщения
 	close(r.User1IsAvailableRead)
 	close(r.User1IsAvailableWrite)
-	_ = r.User1.Connection.Close()
+	// r.User1.Connection.Close() сделает WebSocketWriter(1) после отправки последнего сообщения
 	close(r.User0To)
 	close(r.User1To)
 	log.Print("room with User0.Token='" + r.User0.Token + "', r.User1.Token='" + r.User1.Token + "' closed")
