@@ -1,4 +1,4 @@
-package rooms_manager
+package game_logic
 
 import (
 	"fmt"
@@ -77,7 +77,8 @@ func (r *Room) GameMaster() {
 			if gameover {
 				// к этому моменту эже все данные должны быть отправлены. только сетевые вопросы и остановка всех 5-и горутин.
 				r.StopRoom()
-				// TODO: отрегистировать в Rooms.
+				// отрегистирует в Rooms.
+				r.RemoveRoom()
 				break
 			}
 			continue
