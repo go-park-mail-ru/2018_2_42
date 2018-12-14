@@ -19,6 +19,13 @@ func (ri RoomId) String() string {
 // называется синим, не равны - красным.
 type RoleId uint8 // ∈ [0, 1]
 
+func (ri RoleId) String() string {
+	if ri == 0 {
+		return "0"
+	}
+	return "1"
+}
+
 // описание принадлежности к игре. Номер игровой комнаты и номер в игре,
 // певый или второй игрок. Второй хранится на сервере в перевёрнутом состоянии.
 type GameToConnect struct {
@@ -163,11 +170,21 @@ func NewRoomsManager() (roomsManager *RoomsManager) {
 }
 
 func (rm *RoomsManager) Run(connectionQueue chan *user_connection.UserConnection) {
-	select {
-	case RoomId := <-rm.CompletedRooms:
-		rm.processRoomRemoval(RoomId)
-	case connection := <-connectionQueue:
-		rm.processUserAddition(connection)
+	for connectionQueue != nil && rm.CompletedRooms != nil {
+		select { // https://stackoverflow.com/questions/13666253/breaking-out-of-a-select-statement-when-all-channels-are-closed
+		case RoomId, ok := <-rm.CompletedRooms:
+			if ok {
+				rm.processRoomRemoval(RoomId)
+			} else {
+				rm.CompletedRooms = nil
+			}
+		case connection, ok := <-connectionQueue:
+			if ok {
+				rm.processUserAddition(connection)
+			} else {
+				connectionQueue = nil
+			}
+		}
 	}
 	return
 }

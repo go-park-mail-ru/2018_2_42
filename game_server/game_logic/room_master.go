@@ -114,7 +114,7 @@ func (r *Room) GameMaster() {
 			r.User1To <- response
 		}
 	}
-	log.Printf("stop GameMaster for room: %#v", *r)
+	log.Print("GameMaster for room = " + r.OwnNumber.String() + " correctly completed.")
 	return
 }
 
@@ -344,9 +344,7 @@ func (r *Room) AttemptGoToCellLogic(role RoleId, from int, to int) (gameOver boo
 	}
 	// проверяем, нет ли там флага
 	if r.Map[to].Weapon == "flag" {
-		log.Print("game over")
-		r.Attack(0, from, r.Map[from].Weapon, to, "flag")
-		r.Attack(1, from, r.Map[from].Weapon, to, "flag")
+		log.Print("game over in room = " + r.OwnNumber.String())
 		r.Gameover(0, role, from, to)
 		r.Gameover(1, role, from, to)
 		gameOver = true

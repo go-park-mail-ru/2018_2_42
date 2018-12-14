@@ -173,6 +173,7 @@ func (r *Room) WebSocketReader(role RoleId) {
 			}
 		}
 	}
+	log.Print("WebSocketReader room = " + r.OwnNumber.String() + ", role = " + role.String() + " correctly completed.")
 	return
 }
 
@@ -210,5 +211,6 @@ func (r *Room) WebSocketWriter(role RoleId) {
 		}
 		_ = r.User1.Connection.Close()
 	}
+	log.Print("WebSocketWriter room = " + r.OwnNumber.String() + ", role = " + role.String() + " correctly completed.")
 	return
 }
