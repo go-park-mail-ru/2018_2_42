@@ -188,7 +188,7 @@ for positionId := 0; positionId <= 41; positionId++ {
 Список handler's, которые необходимо реализовать:
 На сервере по http:
     Установление соединения к игре, протокол http, /game/v1/instance1
-    Требует cookie sessionid.
+    Требует cookie "SessionId".
 
 На сервере внутри websocket:
     Первоначальная загрузка карты

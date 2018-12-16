@@ -162,9 +162,10 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 	http.SetCookie(w, &http.Cookie{
 		Name:  "SessionId",
 		Value: authorizationToken,
+		Path:  "/",
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Permanent_cookie
-		Expires:  time.Now().AddDate(0, 1, 0),
-		Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
+		Expires:  time.Now().AddDate(0, 0, 7),
+		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
@@ -254,8 +255,9 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 	http.SetCookie(w, &http.Cookie{
 		Name:     "SessionId",
 		Value:    authorizationToken,
-		Expires:  time.Now().AddDate(0, 1, 0),
-		Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
+		Path:     "/",
+		Expires:  time.Now().AddDate(0, 0, 7),
+		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
@@ -440,7 +442,9 @@ func (e *Environment) Login(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &http.Cookie{
 			Name:     "SessionId",
 			Value:    authorizationToken,
-			Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
+			Path:     "/",
+			Expires:  time.Now().AddDate(0, 0, 7),
+			Secure:   true,
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 		})
@@ -498,7 +502,7 @@ func (e *Environment) Logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "SessionId",
 		Expires:  time.Unix(0, 0),
-		Secure:   false, // TODO: Научиться устанавливать https:// сертефикаты
+		Secure:   true,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})

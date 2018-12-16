@@ -1,17 +1,17 @@
-package connection_upgrader
+package connectionUpgrader
 
 import (
-	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"time"
 
-	authorisationClient "github.com/go-park-mail-ru/2018_2_42/game_server/grpc_authorisation_client"
+	"github.com/gorilla/websocket"
+
 	"github.com/go-park-mail-ru/2018_2_42/game_server/types"
 	"github.com/go-park-mail-ru/2018_2_42/game_server/user_connection"
 )
 
-// Ответственность: превращение http соединения в игрока - пользователя.
+// ConnectionUpgrader ответственен за превращение http соединения в игрока - пользователя.
 type ConnectionUpgrader struct {
 	// Настройки WebSocket.
 	upgrader websocket.Upgrader
@@ -19,7 +19,7 @@ type ConnectionUpgrader struct {
 	QueueToGame chan *user_connection.UserConnection
 }
 
-// Фабричная функция вместо конструктора.
+// NewConnectionUpgrader - фабричная функция вместо конструктора.
 func NewConnectionUpgrader() (cu *ConnectionUpgrader) {
 	cu = &ConnectionUpgrader{
 		upgrader: websocket.Upgrader{
@@ -36,12 +36,13 @@ func NewConnectionUpgrader() (cu *ConnectionUpgrader) {
 
 var debug = true
 
-// Handler, входная точка для http соединения.
+// HTTPEntryPoint - входная точка для http соединения.
 // Запускается в разных горутинах, только читает из класса.
-func (cu *ConnectionUpgrader) HttpEntryPoint(w http.ResponseWriter, r *http.Request) {
+// Проводит upgrade соединения и проверку cookie полззователя.
+func (cu *ConnectionUpgrader) HTTPEntryPoint(w http.ResponseWriter, r *http.Request) {
 	log.Printf("New connection: %#v", r)
-	// Проверяет sessionid из cookie.
-	sessionId, err := r.Cookie("sessionid")
+	// Проверяет SessionId из cookie.
+	sessionID, err := r.Cookie("SessionId")
 	if err != nil {
 		response, _ := types.ServerResponse{
 			Status:  "forbidden",
@@ -59,31 +60,6 @@ func (cu *ConnectionUpgrader) HttpEntryPoint(w http.ResponseWriter, r *http.Requ
 		// просто создаёт случайный логин
 		login = "Anon" + time.Now().Format(time.RFC3339)
 		avatar = "/images/default.png"
-	} else {
-		// проверяет наличие этого пользователя в базе
-		var err error
-		login, avatar, err = authorisationClient.Worker(sessionId.Value)
-		if err != nil {
-			detailedError := err.(*authorisationClient.DetailedError)
-			if detailedError.Code == http.StatusForbidden {
-				response, _ := types.ServerResponse{
-					Status:  "forbidden",
-					Message: "you are not logged in: " + err.Error(),
-				}.MarshalJSON()
-				w.WriteHeader(http.StatusForbidden)
-				w.Write(response)
-				r.Body.Close()
-				return
-			}
-			response, _ := types.ServerResponse{
-				Status:  "internal server error",
-				Message: err.Error(),
-			}.MarshalJSON()
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write(response)
-			r.Body.Close()
-			return
-		}
 	}
 	// Меняет протокол.
 	WSConnection, err := cu.upgrader.Upgrade(w, r, nil)
@@ -100,7 +76,7 @@ func (cu *ConnectionUpgrader) HttpEntryPoint(w http.ResponseWriter, r *http.Requ
 	connection := &user_connection.UserConnection{
 		Login:      login,
 		Avatar:     avatar,
-		Token:      sessionId.Value,
+		Token:      sessionID.Value,
 		Connection: WSConnection,
 	}
 	cu.QueueToGame <- connection
