@@ -1,0 +1,203 @@
+Api сервера, переписанное на REST.
+Доступные сущности в api:
+    пользователь
+    сессия
+
+Планируется 4 элемента в системе, без усложнений:
+    nginx как точка входа,
+    go сервер для авторизации,
+    go сервер для игровых комнат,
+    postgresql как база данных для пользователей.
+    
+группы url, с которыми работает Nginx:
+    /                   точка входа, то же, что и /static/index.html
+    /static/*           картинки оформления, текстуры игры, css, js
+    /media/*            загружаемое содержимое аватарки пользователей
+    /api/v1/*           проксирование на сервер работы с пользвателями и статистикой
+    /game/v1/instance1  проксирование на websocket serwer
+
+Задел на локализацию сообщений сервера: Сервер возвращает английские фразы по результатам каждого действия, которые являются ключами в map c фразами на нужном языке.
+
+Методы, требующие реализации:
+    GET    /api/v1/user?login=JohanDoe     - получить профиль конкретного пользователя
+    POST   /api/v1/user                    - добавить пользователя (зарегистрироваться) и сразу оказаться залогиненным
+
+    GET    /api/v1/users?limit=10&offset=0 - получить всех пользователей для доски лидеров
+
+    POST   /api/v1/session                 - залогиниться, уже имея аккаунт
+    DELETE /api/v1/session                 - разлогиниться
+
+    POST   /api/v1/avatar                  - загрузка аватарки
+
+Регистрация пользователей обычная.
+POST 
+/api/v1/user?temporary=false
+
+Content-Type: application/json
+request body:
+{
+    "login": "",
+    "password": ""
+}
+
+answer
+201 Created, и заголовок set cookie c токеном <-- http only tocken
+{
+    "status": "сreated",
+    "message": "successful_disposable_registration"
+}
+409 Conflict
+{
+    "status": "conflict",
+    "message": "login_is_not_unique"
+}
+422 Unprocessable Entity
+{
+    "status": "unprocessable_entity",
+    "message": "empty_login"
+}
+400 Bad Request
+{
+    "status": "bad_request",
+    "message": "invalid_request_format"
+}
+
+Регистрация временного пользователя, что бы можно было играть без проблем, просто введя имя.
+(Реализовать потом, не критично.)
+POST
+/api/v1/user?temporary=true
+
+Content-Type: application/json
+request body:
+{
+    "login": ""
+}
+answer
+201 Created, и заголовок set cookie c токеном <-- http only tocken
+{
+    "status": "сreated",
+    "message": "successful_disposable_registration"
+}
+409 Conflict
+{
+    "status": "conflict",
+    "message": "login_is_not_unique"
+}
+422 Unprocessable Entity
+{
+    "status": "unprocessable_entity",
+    "message": "empty_login"
+}
+400 Bad Request
+{
+    "status": "bad_request",
+    "message": "invalid_request_format"
+}
+
+Залогиниться
+POST
+/api/v1/session
+
+Content-Type: application/json
+request body:
+{
+    "login": "",
+    "password": ""
+}
+answer
+202 Accepted, и заголовок set cookie c токеном <-- http only tocken
+{
+    "status": "accepted",
+    "message": "successful_password_login"
+}
+403 Forbidden 
+{
+    "status": "forbidden",
+    "message": "wrong_login_or_password"
+}
+400 Bad Request
+{
+    "status": "bad_request",
+    "message": "invalid_request_format"
+}
+
+Разлогиниться
+DELETE
+/api/v1/session
+
+Content-Type: application/json
+205 Reset Content, и заголовок set cookie c токеном sessionid c вчерашним днём
+{
+    "status":  "reset content",
+    "message": "successful_logout"
+}
+403 Forbidden 
+{
+    "status":  "forbidden",
+    "message": "wrong_login_or_password"
+}
+
+Страница таблицы лидеров. Авторизация для действия не требуется. Возвращается уже отсортированный массив: сначала по количеству побед по убыванию, потом по количеству сыграных игр по возрастанию, есть пагинация. 
+GET
+/api/v1/users?limit=20&offset=0
+
+answer
+200 Ok
+[
+    {
+        "login": "",
+        "avatarAddress": "",
+        "gamesPlayed": 0,
+        "wins": 0
+    }
+]
+
+Профиль любого пользователя, авторизация для действия не требуется.
+GET
+/api/v1/user?login=JohanDoe - получить профиль конкретного пользователя
+
+Content-Type: application/json
+{
+    "login": "",
+    "avatarAddress": "",
+    "gamesPlayed": 0,
+    "wins": 0
+}
+
+Измение аватара. Нужно быть залогиненным.
+POST
+/api/v1/avatar
+Content-Type: multipart/form-data
+поле 'avatar' от <input type="file" name="avatar">
+
+answer
+202 Accepted, и заголовок set cookie c токеном <-- http only tocken
+{
+    status: accepted
+    message: successful set awatar
+}
+403 Forbidden 
+{
+    status: forbidden
+    message: not authorized
+}
+400 Bad Request
+{
+    status: bad request
+    message: invalid request format
+}
+422 Unprocessable Entity
+{
+    status: unprocessable entity
+    message: рicture is too big
+}
+
+Подключение и вход в игру
+/game/v1/instance1
+Требуется быть авторизованным и прийти за WebSocket соединением:
+    HTTP/1.1 101 Switching Protocols
+    Upgrade: websocket 
+    Connection: Upgrade
+
+TODO: разобраться с JSON RPC внутри websocket соединения.
+

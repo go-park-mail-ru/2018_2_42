@@ -1,0 +1,29 @@
+Схема базы данных для информации пользователей
+user
+    id
+    login -- unique, имя, под которым отображается пользователь для других игроков.
+    avatar_address -- адрес относительно корня сайта: '/media/name-src32.ext'
+    disposable -- логическое значение. Можно поиграть, введя только имя. Не сохраняется надолго.
+    last login time
+    
+regular_login_information    
+    id
+    user_id -- foreign_key unique
+    password_hash
+
+vk_login_information -- сильно потом и возможно 
+    данные из vk api
+   
+game_statistics -- данные для таблицы лидеров
+    id
+    user_id -- foreign_key unique
+    games_played -- количество начатых игр
+    wins -- количество доведённых до победного конца
+
+-- текущая принадлежность к игре.
+-- допущение - только одна игра в один момент времени.
+current_login
+    id
+    user_id -- foreign_key unique
+    authorization_token unique
+

@@ -1,7 +1,6 @@
 # _4️⃣2️⃣_
 
-<a href="https://github.com/frontend-park-mail-ru/2018_2_42">Репозиторий фронтенда.</a>  
-<a href="https://app.swaggerhub.com/apis/RPS-Arena/authorisation-server/1.0.0">Swagger документация.</a>
+Репозиторий фронтенда: https://github.com/frontend-park-mail-ru/2018_2_42
 
 ## Команда
 1️⃣ [Дикарев Андрей](https://github.com/DikarevAndrey)
