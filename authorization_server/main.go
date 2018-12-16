@@ -2,59 +2,69 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-park-mail-ru/2018_2_42/authorization_server/accessor"
-	"github.com/go-park-mail-ru/2018_2_42/authorization_server/config"
-	"github.com/go-park-mail-ru/2018_2_42/authorization_server/environment"
-	gRPCServer "github.com/go-park-mail-ru/2018_2_42/authorization_server/grpc_authorisation_server"
-	"github.com/go-park-mail-ru/2018_2_42/authorization_server/handlers"
-	flag "github.com/spf13/pflag" // ради gnu style: --flag='value'
 	"log"
 	"net/http"
+
+	"github.com/pkg/errors"
+	flag "github.com/spf13/pflag" // ради gnu style: --flag='value'
+
+	"github.com/go-park-mail-ru/2018_2_42/authorization_server/accessor"
+	"github.com/go-park-mail-ru/2018_2_42/authorization_server/environment"
+	"github.com/go-park-mail-ru/2018_2_42/authorization_server/handlers"
 )
 
-func main() {
-	configPath := flag.String("config", "./main.json5", "path of config")
-	flag.Parse()
+func registerUsersHandlers(handlersEnv handlers.Environment) {
+	http.Handle("/api/v1/users", http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// setupResponse(w, r)
+			switch r.Method {
+			case http.MethodGet:
+				handlersEnv.LeaderBoard(w, r)
+			default:
+				handlersEnv.ErrorMethodNotAllowed(w, r)
+			}
+		}))
+}
 
-	var err error
-	basicEnv := environment.Environment{}
-	handlersEnv := handlers.Environment(basicEnv)
-	handlersEnv.Config, err = config.ParseConfig(*configPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	handlersEnv.DB, err = accessor.ConnectToDatabase(handlersEnv.Config)
-	err = handlersEnv.DB.InitDatabase()
-	if err != nil {
-		log.Fatal(err)
-	}
+func registerSessionHandlers(handlersEnv handlers.Environment) {
+	http.Handle("/api/v1/session", http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodPost:
+				handlersEnv.Login(w, r)
+			case http.MethodDelete:
+				handlersEnv.Logout(w, r)
+			default:
+				handlersEnv.ErrorMethodNotAllowed(w, r)
+			}
+		}))
+}
 
-	//start grpc_authorisation worker
-	serverEnvironment := gRPCServer.ServerEnvironment{basicEnv}
-	go func() {
-		log.Print("gRPCServer.Worker number start")
-		err := gRPCServer.Worker(&serverEnvironment)
-		if err != nil {
-			log.Print("gRPCServer.Worker stop with error: " + err.Error())
-		} else {
-			log.Print("gRPCServer.Worker stop successfully")
-		}
-	}()
+func registerAvatarHandlers(handlersEnv handlers.Environment) {
+	http.Handle("/api/v1/avatar", http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodPost:
+				handlersEnv.SetAvatar(w, r)
+			default:
+				handlersEnv.ErrorMethodNotAllowed(w, r)
+			}
+		}))
+}
 
+func registerUserHandlers(handlersEnv handlers.Environment) {
 	http.Handle("/api/v1/user", http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodGet:
 				handlersEnv.UserProfile(w, r)
-			case http.MethodOptions:
-				return
 			case http.MethodPost:
 				params := r.URL.Query()
-				temprary := false
+				temporary := false
 				if isTemporary, ok := params["temporary"]; ok && len(isTemporary) == 1 {
-					temprary = isTemporary[0] == "true"
+					temporary = isTemporary[0] == "true"
 				}
-				if temprary {
+				if temporary {
 					handlersEnv.RegistrationTemporary(w, r)
 				} else {
 					handlersEnv.RegistrationRegular(w, r)
@@ -64,50 +74,27 @@ func main() {
 				handlersEnv.ErrorMethodNotAllowed(w, r)
 			}
 		}))
+}
 
-	// получить всех пользователей для доски лидеров
-	http.Handle("/api/v1/users", http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			// setupResponse(w, r)
-			switch r.Method {
-			case http.MethodGet:
-				handlersEnv.LeaderBoard(w, r)
-			case http.MethodOptions:
-				return
-			default:
-				handlersEnv.ErrorMethodNotAllowed(w, r)
-			}
-		}))
+func main() {
+	// получаем конфигурацию из аргументов командной строки
+	listeningPort := flag.String("listening-port", "8080", "port on which the server will listen")
+	postgresPath := flag.String("postgres-path",
+		"full postgres address like 'postgres://postgres:@127.0.0.1:5432/postgres?sslmode=disable' in default",
+		"postgres://postgres:@127.0.0.1:5432/postgres?sslmode=disable")
+	flag.Parse()
 
-	http.Handle("/api/v1/session", http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case http.MethodPost:
-				handlersEnv.Login(w, r)
-			case http.MethodDelete:
-				handlersEnv.Logout(w, r)
-			case http.MethodOptions:
-				return
-			default:
-				handlersEnv.ErrorMethodNotAllowed(w, r)
-			}
-		}))
-
-	http.Handle("/api/v1/avatar", http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case http.MethodPost:
-				handlersEnv.SetAvatar(w, r)
-			case http.MethodOptions:
-				return
-			default:
-				handlersEnv.ErrorMethodNotAllowed(w, r)
-			}
-		}))
-
-	fmt.Println("starting server at :8080")
-
-	log.Println(http.ListenAndServe(":8080", nil))
+	// подключаемся к базе.
+	var err error
+	handlersEnv := handlers.Environment(environment.Environment{})
+	handlersEnv.DB, err = accessor.ConnectToDatabase(*postgresPath)
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "accessor.ConnectToDatabase: "))
+	}
+	err = handlersEnv.DB.InitDatabase()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	defer func() {
 		err := handlersEnv.DB.Close()
@@ -115,5 +102,16 @@ func main() {
 			log.Fatal("failed to close Database connection: " + err.Error())
 		}
 	}()
+
+	// регистрируем обработчики запросов с логикой сервера.
+	registerUserHandlers(handlersEnv)
+	registerUsersHandlers(handlersEnv)
+	registerSessionHandlers(handlersEnv)
+	registerAvatarHandlers(handlersEnv)
+
+	// начинаем слушать порт.
+	fmt.Println("starting server at :" + *listeningPort)
+	log.Println(http.ListenAndServe(":"+*listeningPort, nil))
+
 	return
 }
