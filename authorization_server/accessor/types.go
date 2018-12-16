@@ -19,7 +19,7 @@ type User struct {
 
 type RegularLoginInformation struct {
 	// Id           int32
-	UserId       UserId
+	UserID       UserId
 	PasswordHash string // по алгоритму sha3
 }
 

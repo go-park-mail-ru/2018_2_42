@@ -5,7 +5,7 @@ package accessor
 
 import (
 	"database/sql"
-	"github.com/go-park-mail-ru/2018_2_42/authorization_server/config"
+
 	"github.com/go-park-mail-ru/2018_2_42/authorization_server/types"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -17,16 +17,16 @@ type DB struct {
 	*sql.DB // Резерв соединений к базе данных.
 }
 
-func ConnectToDatabase(config config.Config) (db DB, err error) {
-	newDb, err := sql.Open("postgres", config.DataSourceName)
+func ConnectToDatabase(DataSourceName string) (db DB, err error) {
+	newDb, err := sql.Open("postgres", DataSourceName)
 	if err != nil {
-		err = errors.Wrap(err, "error on open connection to '"+config.DataSourceName+"'")
+		err = errors.Wrap(err, "error on open connection to '"+DataSourceName+"'")
 		return
 	}
 
 	err = newDb.Ping()
 	if err != nil {
-		err = errors.Wrap(err, "error during the first connection (Are you sure that the database exists and the application has access to it?): ")
+		err = errors.Wrap(err, "error during the first connection to '"+DataSourceName+"' (Are you sure that the database exists and the application has access to it?): ")
 		return
 	}
 
@@ -61,6 +61,7 @@ func (db *DB) InitDatabase() (err error) {
 }
 
 func (db *DB) init00() (err error) {
+	//language=PostgreSQL
 	_, err = db.Exec(`
 begin transaction;
 
@@ -112,6 +113,7 @@ commit;
 var stmtInsertIntoUser *sql.Stmt
 
 func (db *DB) init01() (err error) {
+	//language=PostgreSQL
 	stmtInsertIntoUser, err = db.Prepare(`
 insert into "user"(
 	"login",
@@ -138,6 +140,7 @@ func (db *DB) InsertIntoUser(login string, avatarAddress string, disposable bool
 var stmtInsertIntoRegularLoginInformation *sql.Stmt
 
 func (db *DB) init02() (err error) {
+	//language=PostgreSQL
 	stmtInsertIntoRegularLoginInformation, err = db.Prepare(`
 insert into "regular_login_information"(
 	"user_id",
@@ -150,8 +153,8 @@ insert into "regular_login_information"(
 	return
 }
 
-func (db *DB) InsertIntoRegularLoginInformation(userId UserId, passwordHash string) (err error) {
-	_, err = stmtInsertIntoRegularLoginInformation.Exec(userId, passwordHash)
+func (db *DB) InsertIntoRegularLoginInformation(userID UserId, passwordHash string) (err error) {
+	_, err = stmtInsertIntoRegularLoginInformation.Exec(userID, passwordHash)
 	if err != nil {
 		err = errors.New("Error on exec 'InsertIntoRegularLoginInformation' statement: " + err.Error())
 	}
@@ -161,6 +164,7 @@ func (db *DB) InsertIntoRegularLoginInformation(userId UserId, passwordHash stri
 var stmtInsertIntoGameStatistics *sql.Stmt
 
 func (db *DB) init03() (err error) {
+	//language=PostgreSQL
 	stmtInsertIntoGameStatistics, err = db.Prepare(`
 insert into "game_statistics" (
 	"user_id",
@@ -185,6 +189,7 @@ func (db *DB) InsertIntoGameStatistics(userId UserId, gamesPlayed int32, wins in
 var stmtInsertIntoCurrentLogin *sql.Stmt
 
 func (db *DB) init04() (err error) {
+	//language=PostgreSQL
 	stmtInsertIntoCurrentLogin, err = db.Prepare(`
 insert into "current_login" (
 	"user_id",
@@ -199,8 +204,8 @@ insert into "current_login" (
 }
 
 // update or insert
-func (db *DB) UpsertIntoCurrentLogin(userId UserId, authorizationToken string) (err error) {
-	_, err = stmtInsertIntoCurrentLogin.Exec(userId, authorizationToken)
+func (db *DB) UpsertIntoCurrentLogin(userID UserId, authorizationToken string) (err error) {
+	_, err = stmtInsertIntoCurrentLogin.Exec(userID, authorizationToken)
 	if err != nil {
 		err = errors.New("Error on exec 'InsertIntoGameStatistics' statement: " + err.Error())
 	}
@@ -210,6 +215,7 @@ func (db *DB) UpsertIntoCurrentLogin(userId UserId, authorizationToken string) (
 var stmtSelectLeaderBoard *sql.Stmt
 
 func (db *DB) init05() (err error) {
+	//language=PostgreSQL
 	stmtSelectLeaderBoard, err = db.Prepare(`
 select
     "user"."login",
@@ -243,7 +249,7 @@ func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation types.P
 	if err != nil {
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		if err = rows.Err(); err != nil {
 			return
@@ -265,6 +271,7 @@ func (db *DB) SelectLeaderBoard(limit int, offset int) (usersInformation types.P
 var stmtSelectUserByLogin *sql.Stmt
 
 func (db *DB) init06() (err error) {
+	//language=PostgreSQL
 	stmtSelectUserByLogin, err = db.Prepare(`
 select
     "user"."login",
@@ -297,6 +304,7 @@ func (db *DB) SelectUserByLogin(login string) (userInformation types.PublicUserI
 var stmtSelectUserIdByLoginPassword *sql.Stmt
 
 func (db *DB) init07() (err error) {
+	//language=PostgreSQL
 	stmtSelectUserIdByLoginPassword, err = db.Prepare(`
 select
 	"user"."id"
@@ -332,6 +340,7 @@ func (db *DB) SelectUserIdByLoginPasswordHash(login string, passwordHash string)
 var stmtDropUsersSession *sql.Stmt
 
 func (db *DB) init08() (err error) {
+	//language=PostgreSQL
 	stmtDropUsersSession, err = db.Prepare(`
 delete from
     "current_login"
@@ -353,6 +362,7 @@ func (db *DB) DropUsersSession(authorizationToken string) (err error) {
 var stmtUpdateUsersAvatarByLogin *sql.Stmt
 
 func (db *DB) init09() (err error) {
+	//language=PostgreSQL
 	stmtUpdateUsersAvatarByLogin, err = db.Prepare(`
 update
     "user"
@@ -382,6 +392,7 @@ func (db *DB) UpdateUsersAvatarByLogin(login string, avatarAddress string) (err 
 var stmtSelectUserLoginBySessionId *sql.Stmt
 
 func (db *DB) init10() (err error) {
+	//language=PostgreSQL
 	stmtSelectUserLoginBySessionId, err = db.Prepare(`
 select 	
 	"user"."id",

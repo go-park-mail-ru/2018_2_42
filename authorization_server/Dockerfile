@@ -1,22 +1,29 @@
 # Для сборки
-# sudo docker build . --tag authorization_server
+# sudo docker build . --tag authorization
 # потом для запуска
 # sudo docker run --network="host" --detach --volume "/var/www/media/images":"/var/www/media/images" authorization_server
 
 FROM golang:1.11
 # GOPATH='/go'
+
+# Скачиваем зависимости. В общем случае проще использовать
+# go get -v ./...
+# но тут удобнее оптимизировать кештрование docker.
+RUN go get -v \
+    'github.com/pkg/errors' \
+    'github.com/spf13/pflag' \
+    'github.com/mailru/easyjson' \
+    'github.com/lib/pq' ;
+
 # копируем исходники
-COPY '.' '/go/src/authorization_server'
-# скачиваем все зависимости
-RUN \
-go get -v ./... &&  \
-# компилируем сервер
-go build -o '/go/bin/authorization_server' authorization_server && \
-# папки под аватарки создаём
-mkdir --parents --mode=a+rwx '/var/www/media' ;
-# копируем конфиг в папку с исполняемым файлом.
-COPY './config/main.json5' '/go/bin/main.json5'
-# При запуске контейнера запустить сервер
-CMD '/go/bin/authorization_server'
-# сделать порт доступным.
-EXPOSE 8080
+COPY '.' "${GOPATH}/src/github.com/go-park-mail-ru/2018_2_42/authorization_server"
+
+# Cкачиваем все зависимости,
+# компилируем сервер,
+# создаём папку под аватарки.
+RUN go build -o '/go/bin/authorization_server' \
+    'github.com/go-park-mail-ru/2018_2_42/authorization_server' && \
+    mkdir --parents --mode=a+rwx '/var/www/media';
+
+# При запуске контейнера запускаем сервер.
+CMD ["/go/bin/authorization_server", "--postgres-path", "postgres://postgres:@database:5432/postgres?sslmode=disable", "--listening-port", "8080"]
