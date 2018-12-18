@@ -21,11 +21,11 @@ func main() {
 
 	// соединение к базе
 	// Инициализируем логгер, результаты выводятся в stdout.
-	Logger := log15adapter.NewLogger(log.New("module", "pgx"))
+	logger := log15adapter.NewLogger(log.New("module", "pgx"))
 
 	// Вытаскиваем статический объект пакета,
 	// агрегатор SQL выражений, которые надо подготовить в базе данных.
-	Prep := &accessor.Prep
+	prep := &accessor.Prep
 
 	// Устанавливаем соединение с базой данных.
 	pool, err := pgx.NewConnPool(pgx.ConnPoolConfig{
@@ -35,12 +35,12 @@ func main() {
 			User:     "postgres",
 			Password: "",
 			Database: "postgres",
-			Logger:   Logger,
+			Logger:   logger,
 		},
 		MaxConnections: 10, // как вокеров
 		// Создаём таблицы в базе данных,
 		// Компилируем sql запросы для каждого соединения после их установления.
-		AfterConnect: Prep.Execute,
+		AfterConnect: prep.Execute,
 	})
 	if err != nil {
 		log.Crit("Unable to create connection pool", "error", err)

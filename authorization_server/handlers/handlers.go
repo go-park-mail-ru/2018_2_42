@@ -18,7 +18,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2018_2_42/authorization_server/environment"
@@ -103,18 +102,17 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userID, err := e.DB.InsertIntoUser(registrationInfo.Login, defaultAvatarURL, false)
+	userID, isDuplicate, err := e.DB.InsertIntoUser(registrationInfo.Login, defaultAvatarURL, false)
+	if isDuplicate {
+		w.WriteHeader(http.StatusConflict)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusConflict),
+			Message: "login_is_not_unique",
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+		return
+	}
 	if err != nil {
-		if strings.Contains(err.Error(),
-			`duplicate key value violates unique constraint "user_login_key"`) {
-			w.WriteHeader(http.StatusConflict)
-			response, _ := types.ServerResponse{
-				Status:  http.StatusText(http.StatusConflict),
-				Message: "login_is_not_unique",
-			}.MarshalJSON()
-			_, _ = w.Write(response)
-			return
-		}
 		w.WriteHeader(http.StatusInternalServerError)
 		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
@@ -163,9 +161,9 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 	}
 	// Отсылаем нормальный ответ.
 	http.SetCookie(w, &http.Cookie{
-		Name:  "SessionId",
-		Value: authorizationToken,
-		Path:  "/",
+		Name:     "SessionId",
+		Value:    authorizationToken,
+		Path:     "/",
 		Expires:  time.Now().AddDate(0, 0, 7),
 		Secure:   true,
 		HttpOnly: true,
@@ -217,18 +215,17 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	userID, err := e.DB.InsertIntoUser(registrationInfo.Login, defaultAvatarURL, true)
+	userID, isDuplicate, err := e.DB.InsertIntoUser(registrationInfo.Login, defaultAvatarURL, true)
+	if isDuplicate {
+		w.WriteHeader(http.StatusConflict)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusConflict),
+			Message: "login_is_not_unique",
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+		return
+	}
 	if err != nil {
-		if strings.Contains(err.Error(),
-			`duplicate key value violates unique constraint "user_login_key"`) {
-			w.WriteHeader(http.StatusConflict)
-			response, _ := types.ServerResponse{
-				Status:  http.StatusText(http.StatusConflict),
-				Message: "login_is_not_unique",
-			}.MarshalJSON()
-			_, _ = w.Write(response)
-			return
-		}
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		response, _ := types.ServerResponse{

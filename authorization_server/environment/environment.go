@@ -5,12 +5,12 @@ import (
 )
 
 type Environment struct {
-	DB accessor.DB
+	DB     accessor.DB
 	Config Config
 }
 
 type Config struct {
-	PostgresPath *string
+	PostgresPath  *string
 	ListeningPort *string
-	ImagesRoot *string
+	ImagesRoot    *string
 }

@@ -5,10 +5,12 @@ package accessor
 
 import (
 	"database/sql"
-
-	"github.com/go-park-mail-ru/2018_2_42/authorization_server/types"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
+	"strconv"
+
+	"github.com/go-park-mail-ru/2018_2_42/authorization_server/types"
 )
 
 // собственный тип, что бы прикреплять к нему функции с бизнес логикой.
@@ -50,10 +52,10 @@ func (db *DB) InitDatabase() (err error) {
 		db.init09,
 		db.init10,
 	}
-	for _, init := range initAll {
+	for i, init := range initAll {
 		err = init()
 		if err != nil {
-			err = errors.Wrap(err, "during preparing functions: ")
+			err = errors.Wrap(err, "during preparing function 'accessor.init" + strconv.Itoa(i) + "': ")
 			break
 		}
 	}
@@ -129,12 +131,17 @@ insert into "user"(
 }
 
 // Такие функции скрывают нетипизированность prepared statement.
-func (db *DB) InsertIntoUser(login string, avatarAddress string, disposable bool) (id UserId, err error) {
+func (db *DB) InsertIntoUser(login string, avatarAddress string, disposable bool) (id UserID, isDuplicate bool, err error) {
 	err = stmtInsertIntoUser.QueryRow(login, avatarAddress, disposable).Scan(&id)
 	if err != nil {
+		isDuplicate = err.(*pq.Error).Code == "23505"
+		if isDuplicate {
+			err = nil
+			return
+		}
 		err = errors.New("Error on exec 'insertIntoUser' statement: " + err.Error())
 	}
-	return id, err
+	return
 }
 
 var stmtInsertIntoRegularLoginInformation *sql.Stmt
@@ -153,7 +160,7 @@ insert into "regular_login_information"(
 	return
 }
 
-func (db *DB) InsertIntoRegularLoginInformation(userID UserId, passwordHash string) (err error) {
+func (db *DB) InsertIntoRegularLoginInformation(userID UserID, passwordHash string) (err error) {
 	_, err = stmtInsertIntoRegularLoginInformation.Exec(userID, passwordHash)
 	if err != nil {
 		err = errors.New("Error on exec 'InsertIntoRegularLoginInformation' statement: " + err.Error())
@@ -178,7 +185,7 @@ insert into "game_statistics" (
 	return
 }
 
-func (db *DB) InsertIntoGameStatistics(userId UserId, gamesPlayed int32, wins int32) (err error) {
+func (db *DB) InsertIntoGameStatistics(userId UserID, gamesPlayed int32, wins int32) (err error) {
 	_, err = stmtInsertIntoGameStatistics.Exec(userId, gamesPlayed, wins)
 	if err != nil {
 		err = errors.New("Error on exec 'insertIntoGameStatistics' statement: " + err.Error())
@@ -204,7 +211,7 @@ insert into "current_login" (
 }
 
 // update or insert
-func (db *DB) UpsertIntoCurrentLogin(userID UserId, authorizationToken string) (err error) {
+func (db *DB) UpsertIntoCurrentLogin(userID UserID, authorizationToken string) (err error) {
 	_, err = stmtInsertIntoCurrentLogin.Exec(userID, authorizationToken)
 	if err != nil {
 		err = errors.New("Error on exec 'InsertIntoGameStatistics' statement: " + err.Error())
@@ -301,11 +308,11 @@ func (db *DB) SelectUserByLogin(login string) (userInformation types.PublicUserI
 	return
 }
 
-var stmtSelectUserIdByLoginPassword *sql.Stmt
+var stmtSelectUserIDByLoginPassword *sql.Stmt
 
 func (db *DB) init07() (err error) {
 	//language=PostgreSQL
-	stmtSelectUserIdByLoginPassword, err = db.Prepare(`
+	stmtSelectUserIDByLoginPassword, err = db.Prepare(`
 select
 	"user"."id"
 from 
@@ -320,8 +327,8 @@ where
 	return
 }
 
-func (db *DB) SelectUserIdByLoginPasswordHash(login string, passwordHash string) (exist bool, userId UserId, err error) {
-	err = stmtSelectUserIdByLoginPassword.QueryRow(login, passwordHash).Scan(
+func (db *DB) SelectUserIdByLoginPasswordHash(login string, passwordHash string) (exist bool, userId UserID, err error) {
+	err = stmtSelectUserIDByLoginPassword.QueryRow(login, passwordHash).Scan(
 		&userId,
 	)
 	if err != nil {
@@ -389,11 +396,11 @@ func (db *DB) UpdateUsersAvatarByLogin(login string, avatarAddress string) (err 
 	return
 }
 
-var stmtSelectUserLoginBySessionId *sql.Stmt
+var stmtSelectUserLoginBySessionID *sql.Stmt
 
 func (db *DB) init10() (err error) {
 	//language=PostgreSQL
-	stmtSelectUserLoginBySessionId, err = db.Prepare(`
+	stmtSelectUserLoginBySessionID, err = db.Prepare(`
 select 	
 	"user"."id",
 	"user"."login",
@@ -411,7 +418,7 @@ where
 }
 
 func (db *DB) SelectUserBySessionId(authorizationToken string) (exist bool, user User, err error) {
-	err = stmtSelectUserLoginBySessionId.QueryRow(authorizationToken).Scan(
+	err = stmtSelectUserLoginBySessionID.QueryRow(authorizationToken).Scan(
 		&user.Id,
 		&user.Login,
 		&user.AvatarAddress,
