@@ -16,10 +16,10 @@ func (r *Room) GameMaster() {
 	var role RoleId
 	for {
 		select {
-		case message = <-r.User0From:
+		case message = <-r.Messaging.User0From:
 			role = 0
 			log.Printf("message came from the User0: " + string(message))
-		case message = <-r.User1From:
+		case message = <-r.Messaging.User1From:
 			role = 1
 			log.Printf("message came from the User1: " + string(message))
 		}
@@ -32,9 +32,9 @@ func (r *Room) GameMaster() {
 				Parameter: response,
 			}.MarshalJSON()
 			if role == 0 {
-				r.User0To <- response
+				r.Messaging.User0To <- response
 			} else {
-				r.User1To <- response
+				r.Messaging.User1To <- response
 			}
 			continue
 		}
@@ -47,9 +47,9 @@ func (r *Room) GameMaster() {
 					Parameter: response,
 				}.MarshalJSON()
 				if role == 0 {
-					r.User0To <- response
+					r.Messaging.User0To <- response
 				} else {
-					r.User1To <- response
+					r.Messaging.User1To <- response
 				}
 				if r.User0UploadedCharacters && r.User1UploadedCharacters {
 					r.DownloadMap(role)
@@ -66,9 +66,9 @@ func (r *Room) GameMaster() {
 					Parameter: response,
 				}.MarshalJSON()
 				if role == 0 {
-					r.User0To <- response
+					r.Messaging.User0To <- response
 				} else {
-					r.User1To <- response
+					r.Messaging.User1To <- response
 				}
 				if r.User0UploadedCharacters && r.User1UploadedCharacters {
 					r.DownloadMap(role)
@@ -92,9 +92,9 @@ func (r *Room) GameMaster() {
 					Parameter: response,
 				}.MarshalJSON()
 				if role == 0 {
-					r.User0To <- response
+					r.Messaging.User0To <- response
 				} else {
-					r.User1To <- response
+					r.Messaging.User1To <- response
 				}
 				if r.User0UploadedCharacters && r.User1UploadedCharacters {
 					r.DownloadMap(role)
@@ -109,9 +109,9 @@ func (r *Room) GameMaster() {
 				"available only ['attempt_go_to_cell', 'upload_map', 'reassign_weapons']."),
 		}.MarshalJSON()
 		if role == 0 {
-			r.User0To <- response
+			r.Messaging.User0To <- response
 		} else {
-			r.User1To <- response
+			r.Messaging.User1To <- response
 		}
 	}
 	log.Print("GameMaster for room = " + r.OwnNumber.String() + " correctly completed.")
@@ -227,9 +227,9 @@ func (r *Room) DownloadMap(role RoleId) {
 		Parameter: parameter,
 	}.MarshalJSON()
 	if role == 0 {
-		r.User0To <- response
+		r.Messaging.User0To <- response
 	} else {
-		r.User1To <- response
+		r.Messaging.User1To <- response
 	}
 	return
 }
@@ -242,14 +242,14 @@ func (r *Room) YourRival(role RoleId) {
 			Method:    "your_rival",
 			Parameter: []byte(response),
 		}.MarshalJSON()
-		r.User1To <- response
+		r.Messaging.User1To <- response
 	} else {
 		response, _ := types.YourRival(r.User0.Login).MarshalJSON()
 		response, _ = types.Event{
 			Method:    "your_rival",
 			Parameter: []byte(response),
 		}.MarshalJSON()
-		r.User0To <- response
+		r.Messaging.User0To <- response
 	}
 	return
 }
@@ -267,9 +267,9 @@ func (r *Room) YourTurn(role RoleId) {
 		Parameter: response,
 	}.MarshalJSON()
 	if role == 0 {
-		r.User0To <- response
+		r.Messaging.User0To <- response
 	} else {
-		r.User1To <- response
+		r.Messaging.User1To <- response
 	}
 	return
 }
@@ -499,9 +499,9 @@ func (r *Room) MoveCharacter(role RoleId, from int, to int) {
 		Parameter: response,
 	}.MarshalJSON()
 	if role == 0 {
-		r.User0To <- response
+		r.Messaging.User0To <- response
 	} else {
-		r.User1To <- response
+		r.Messaging.User1To <- response
 	}
 	return
 }
@@ -529,9 +529,9 @@ func (r *Room) Attack(role RoleId, winner int, winnerWeapon Weapon, loser int, l
 		Parameter: response,
 	}.MarshalJSON()
 	if role == 0 {
-		r.User0To <- response
+		r.Messaging.User0To <- response
 	} else {
-		r.User1To <- response
+		r.Messaging.User1To <- response
 	}
 	return
 }
@@ -552,9 +552,9 @@ func (r *Room) AddWeapon(role RoleId, coordinates int, weapon Weapon) {
 		Parameter: response,
 	}.MarshalJSON()
 	if role == 0 {
-		r.User0To <- response
+		r.Messaging.User0To <- response
 	} else {
-		r.User1To <- response
+		r.Messaging.User1To <- response
 	}
 	return
 }
@@ -573,9 +573,9 @@ func (r *Room) WeaponChangeRequest(role RoleId, characterOfPlayer int) {
 		Parameter: response,
 	}.MarshalJSON()
 	if role == 0 {
-		r.User0To <- response
+		r.Messaging.User0To <- response
 	} else {
-		r.User1To <- response
+		r.Messaging.User1To <- response
 	}
 	return
 }
@@ -597,9 +597,9 @@ func (r *Room) Gameover(role RoleId, winnerRole RoleId, from int, to int) {
 		Parameter: response,
 	}.MarshalJSON()
 	if role == 0 {
-		r.User0To <- response
+		r.Messaging.User0To <- response
 	} else {
-		r.User1To <- response
+		r.Messaging.User1To <- response
 	}
 	return
 }

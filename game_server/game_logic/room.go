@@ -32,17 +32,29 @@ type Room struct {
 		AttackedCharacter int
 	}
 
-	// переменные для синхронизации мастера игры и читающих/пишуших в Websocket горутин:
-	User0From             chan []byte
-	User0To               chan []byte
-	User0IsAvailableRead  chan struct{}
-	User0IsAvailableWrite chan struct{}
-	User1From             chan []byte
-	User1To               chan []byte
-	User1IsAvailableRead  chan struct{}
-	User1IsAvailableWrite chan struct{}
+	// Каналы, c помощью которых go room.GameMaster() общается с
+	// ['go room.WebSocketReader(0)', 'go room.WebSocketWriter(0)', 'go room.WebSocketReader(1)', 'go room.WebSocketWriter(1)']
+	Messaging struct{
+		User0From             chan []byte
+		User0To               chan []byte
+		User1From             chan []byte
+		User1To               chan []byte
+	}
 
-	// для того, что бы отрегистрировать комнату надо отправить RoomId в этот канал.
+	// Каналы для синхронизации мастера игры и читающих/пишуших в Websocket горутин при разрыве соединения.
+	Recovery struct {
+		// приход сообщения означает:
+		// go room.WebSocketReader(0) может снова заблокироваться на чтение из сокета
+		User0IsAvailableRead  chan struct{}
+		// go room.WebSocketWriter(0) может снова попытаться отправить сообщение пользователю User0
+		User0IsAvailableWrite chan struct{}
+		// go room.WebSocketReader(1) может снова заблокироваться на чтение из сокета
+		User1IsAvailableRead  chan struct{}
+		// go room.WebSocketWriter(1) может снова попытаться отправить сообщение пользователю User1
+		User1IsAvailableWrite chan struct{}
+	}
+
+	// Что бы отрегистрировать комнату, надо отправить RoomId в канал:
 	Completed chan RoomId
 	OwnNumber RoomId
 }
@@ -51,21 +63,36 @@ func NewRoom(player0, player1 *user_connection.UserConnection, completedRooms ch
 	room = &Room{
 		User0: player0,
 		User1: player1,
-
 		Map: [42]*Сharacter{},
-
-		User0From:             make(chan []byte, 5),
-		User0To:               make(chan []byte, 5),
-		User0IsAvailableRead:  make(chan struct{}, 1),
-		User0IsAvailableWrite: make(chan struct{}, 1),
-		User1From:             make(chan []byte, 5),
-		User1To:               make(chan []byte, 5),
-		User1IsAvailableRead:  make(chan struct{}, 1),
-		User1IsAvailableWrite: make(chan struct{}, 1),
-
 		Completed: completedRooms,
 		OwnNumber: ownNumber,
 	}
+	room.Messaging.User0From = make(chan []byte, 5)
+	room.Messaging.User0To = make(chan []byte, 5)
+	room.Messaging.User1From = make(chan []byte, 5)
+	room.Messaging.User1To = make(chan []byte, 5)
+	room.Recovery.User0IsAvailableRead = make(chan struct{}, 1)
+	room.Recovery.User0IsAvailableWrite = make(chan struct{}, 1)
+	room.Recovery.User1IsAvailableRead = make(chan struct{}, 1)
+	room.Recovery.User1IsAvailableWrite = make(chan struct{}, 1)
+
+	// Внутри каждая комната обслуживается одним мастерм игры - горутиной.
+	// 4 горутины на комнату, что изолируют соединение от игровой логики и подметы соединений менеджером потерь.
+	//    ╭─User0From─▶─╮      ╭─◀─User1From─╮
+	// User0           GameMaster            User1
+	//    ╰─User0To───◀─╯      ╰─▶─User1To───╯
+	// 4 обслуживающие соединения горутины создаются в момент старта комнаты и живут, как и
+	// GameMaster всё время существования комнаты.
+	// func User0From обычно заблокирован на чтение из сокета, при разрыве соединения блокируется на
+	// чтение из User0IsAvailableRead. Если получает оттуда сигнал - пытается читать снова,
+	// если этот канал закрыт - завершает работу.
+	// func User0To обычно заблокирован на чтение из канала User0To, если он взял данные от
+	// GameMaster, попытался отправить и не смог, то блокируется на чтение из User0IsAvailableWrite,
+	// Если получает оттуда сигнал - пытается отправить снова, если этот канал закрыт - завершает
+	// работу.
+	// C timeout работает GameMaster: обновляет счётчик на каждое событие прихода данных.
+	// GameMaster содержит игровую логику, в один поток принимает/рассылает запросы, работает с
+	// картой, содержит JSPN RPC сервер, вызывающий функции объекта комнаты.
 	go room.WebSocketReader(0)
 	go room.WebSocketWriter(0)
 	go room.WebSocketReader(1)
@@ -82,14 +109,22 @@ func NewRoom(player0, player1 *user_connection.UserConnection, completedRooms ch
 // User0           GameMaster            User1
 //    ╰─User0To───◀─╯      ╰─▶─User1To───╯
 func (r *Room) StopRoom() {
-	close(r.User0IsAvailableRead)
-	close(r.User0IsAvailableWrite)
-	// r.User0.Connection.Close() сделает WebSocketWriter(0) после отправки последнего сообщения
-	close(r.User1IsAvailableRead)
-	close(r.User1IsAvailableWrite)
-	// r.User1.Connection.Close() сделает WebSocketWriter(1) после отправки последнего сообщения
-	close(r.User0To)
-	close(r.User1To)
+	// завершит go room.WebSocketReader(0)
+	close(r.Recovery.User0IsAvailableRead)
+
+	// завершит go room.WebSocketWriter(0)
+	// go WebSocketWriter(0) закроет tcp соединение r.User0.Connection.Close() после отправки последнего сообщения
+	close(r.Messaging.User0To)
+	close(r.Recovery.User0IsAvailableWrite)
+
+	// завершит go room.WebSocketReader(1)
+	close(r.Recovery.User1IsAvailableRead)
+
+	// завершит go room.WebSocketWriter(1)
+	// go WebSocketWriter(1) закроет tcp соединение r.User1.Connection.Close() после отправки последнего сообщения
+	close(r.Messaging.User1To)
+	close(r.Recovery.User1IsAvailableWrite)
+
 	log.Print("room with User0.Token='" + r.User0.Token + "', r.User1.Token='" + r.User1.Token + "' closed")
 	return
 }
@@ -112,11 +147,11 @@ func (r *Room) Reconnect(user *user_connection.UserConnection, role RoleId) {
 		r.User0 = user
 		// если в канале уже есть сигнал, пропускаем.
 		select {
-		case r.User0IsAvailableRead <- struct{}{}:
+		case r.Recovery.User0IsAvailableRead <- struct{}{}:
 		default:
 		}
 		select {
-		case r.User0IsAvailableWrite <- struct{}{}:
+		case r.Recovery.User0IsAvailableWrite <- struct{}{}:
 		default:
 		}
 	} else {
@@ -126,11 +161,11 @@ func (r *Room) Reconnect(user *user_connection.UserConnection, role RoleId) {
 		r.User1 = user
 		// если в канале уже есть сигнал, пропускаем.
 		select {
-		case r.User1IsAvailableRead <- struct{}{}:
+		case r.Recovery.User1IsAvailableRead <- struct{}{}:
 		default:
 		}
 		select {
-		case r.User1IsAvailableWrite <- struct{}{}:
+		case r.Recovery.User1IsAvailableWrite <- struct{}{}:
 		default:
 		}
 	}
@@ -147,14 +182,14 @@ func (r *Room) WebSocketReader(role RoleId) {
 			_, message, err := r.User0.Connection.ReadMessage()
 			if err != nil {
 				log.Print("Error from user role 0 with Token '" + r.User0.Token + "': '" + err.Error() + "'.")
-				_, stillOpen := <-r.User0IsAvailableRead
+				_, stillOpen := <-r.Recovery.User0IsAvailableRead
 				if !stillOpen {
-					close(r.User0From)
+					close(r.Messaging.User0From)
 					break
 				}
 			} else {
 				log.Print("message from user role 0 with Token '" + r.User0.Token + "': '" + string(message) + "'.")
-				r.User0From <- message
+				r.Messaging.User0From <- message
 			}
 		}
 	} else {
@@ -162,14 +197,14 @@ func (r *Room) WebSocketReader(role RoleId) {
 			_, message, err := r.User1.Connection.ReadMessage()
 			if err != nil {
 				log.Print("Error from user role 1 with Token '" + r.User0.Token + "': '" + err.Error() + "'.")
-				_, stillOpen := <-r.User1IsAvailableRead
+				_, stillOpen := <-r.Recovery.User1IsAvailableRead
 				if !stillOpen {
-					close(r.User1From)
+					close(r.Messaging.User1From)
 					break
 				}
 			} else {
 				log.Print("message from user role 1 with Token '" + r.User0.Token + "': '" + string(message) + "'.")
-				r.User1From <- message
+				r.Messaging.User1From <- message
 			}
 		}
 	}
@@ -180,11 +215,11 @@ func (r *Room) WebSocketReader(role RoleId) {
 func (r *Room) WebSocketWriter(role RoleId) {
 	if role == 0 {
 	consistentMessageSending0:
-		for message := range r.User0To {
+		for message := range r.Messaging.User0To {
 			for {
 				err := r.User0.Connection.WriteMessage(websocket.TextMessage, message)
 				if err != nil {
-					_, stillOpen := <-r.User0IsAvailableWrite
+					_, stillOpen := <-r.Recovery.User0IsAvailableWrite
 					if !stillOpen {
 						break consistentMessageSending0
 					}
@@ -196,11 +231,11 @@ func (r *Room) WebSocketWriter(role RoleId) {
 		_ = r.User0.Connection.Close()
 	} else {
 	consistentMessageSending1:
-		for message := range r.User1To {
+		for message := range r.Messaging.User1To {
 			for {
 				err := r.User1.Connection.WriteMessage(websocket.TextMessage, message)
 				if err != nil {
-					_, stillOpen := <-r.User1IsAvailableWrite
+					_, stillOpen := <-r.Recovery.User1IsAvailableWrite
 					if !stillOpen {
 						break consistentMessageSending1
 					}
