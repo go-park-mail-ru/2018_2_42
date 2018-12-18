@@ -1,0 +1,20 @@
+language: bash
+
+sudo: required
+
+services:
+  - docker
+
+branches:
+  only:
+    - dev
+
+script:
+  - docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
+  - docker build --tag authorization_server --file './authorization_server/Dockerfile'
+  - docker push 'olegschwann/authorization_server';
+  - docker build --tag game_server --file './game_server/Dockerfile'
+  - docker push 'olegschwann/game_server';
+  - ssh-keyscan -H 95.163.212.32 >> ~/.ssh/known_hosts
+  - chmod 400 2018_2_42_id_rsa.pem
+  - cat restart_containers.sh | ssh ubuntu@95.163.212.32 -i './2018_2_42_id_rsa.pem'
