@@ -1,11 +1,16 @@
+language: bash
+
 sudo: required
+
+services:
+  - docker
 
 branches:
   only:
     - dev
 
 script:
-  - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+  - echo $DOCKER_PASSWORD | docker login -u "$DOCKER_USERNAME" --password-stdin
   - docker build --tag authorization_server --file './authorization_server/Dockerfile'
   - docker push olegschwann/authorization_server;
   - docker build --tag game_server --file './game_server/Dockerfile'
