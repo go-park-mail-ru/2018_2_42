@@ -5,7 +5,7 @@ branches:
     - dev
 
 script:
-  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
   - docker build --tag authorization_server --file './authorization_server/Dockerfile'
   - docker push olegschwann/authorization_server;
   - docker build --tag game_server --file './game_server/Dockerfile'
