@@ -1,3 +1,13 @@
+// Схема базы данных, c которой работает сервис.
+// Скомпилированный бинарник содержит схему, это серьёзно упрощает первое развёртывание.
+
+package accessor
+
+import "github.com/pkg/errors"
+
+func (db *DB) init00() (err error) {
+	//language=PostgreSQL
+	_, err = db.Exec(`
 begin transaction;
 
 create table if not exists "user" (
@@ -39,4 +49,7 @@ create table if not exists "current_login" (
 );
 
 commit;
-
+	`)
+	err = errors.Wrap(err, "error during preparation database tables: init00: ")
+	return
+}
