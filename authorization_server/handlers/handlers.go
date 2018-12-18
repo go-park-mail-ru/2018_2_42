@@ -51,7 +51,7 @@ func randomToken() string {
 	return string(result)
 }
 
-const defaultAvatarUrl = "/images/default.png"
+const defaultAvatarURL = "/images/default.png"
 
 // RegistrationRegular godoc
 // @Summary Regular user registration.
@@ -101,7 +101,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		_, _ = w.Write(response)
 		return
 	}
-	userId, err := e.DB.InsertIntoUser(registrationInfo.Login, defaultAvatarUrl, false)
+	userID, err := e.DB.InsertIntoUser(registrationInfo.Login, defaultAvatarURL, false)
 	if err != nil {
 		if strings.Contains(err.Error(),
 			`duplicate key value violates unique constraint "user_login_key"`) {
@@ -112,18 +112,17 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 			}.MarshalJSON()
 			_, _ = w.Write(response)
 			return
-		} else {
-			log.Print(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			response, _ := types.ServerResponse{
-				Status:  http.StatusText(http.StatusInternalServerError),
-				Message: "database_error",
-			}.MarshalJSON()
-			_, _ = w.Write(response)
-			return
 		}
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "database_error",
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+		return
 	}
-	err = e.DB.InsertIntoRegularLoginInformation(userId, sha256hash(registrationInfo.Password))
+	err = e.DB.InsertIntoRegularLoginInformation(userID, sha256hash(registrationInfo.Password))
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -134,7 +133,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		_, _ = w.Write(response)
 		return
 	}
-	err = e.DB.InsertIntoGameStatistics(userId, 0, 0)
+	err = e.DB.InsertIntoGameStatistics(userID, 0, 0)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -147,7 +146,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 	}
 	// создаём токены авторизации.
 	authorizationToken := randomToken()
-	err = e.DB.UpsertIntoCurrentLogin(userId, authorizationToken)
+	err = e.DB.UpsertIntoCurrentLogin(userID, authorizationToken)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -176,10 +175,8 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		Message: "successful_reusable_registration",
 	}.MarshalJSON()
 	_, _ = w.Write(response)
-	return
 }
 
-// Регистрация пользователей временная.
 // RegistrationTemporary godoc
 // @Summary Temporary user registration.
 // @Description Сreates user without statistics and password, stub so that you can play 1 session without creating an account.
@@ -216,7 +213,7 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 		_, _ = w.Write(response)
 		return
 	}
-	userId, err := e.DB.InsertIntoUser(registrationInfo.Login, defaultAvatarUrl, true)
+	userID, err := e.DB.InsertIntoUser(registrationInfo.Login, defaultAvatarURL, true)
 	if err != nil {
 		if strings.Contains(err.Error(),
 			`duplicate key value violates unique constraint "user_login_key"`) {
@@ -227,20 +224,19 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 			}.MarshalJSON()
 			_, _ = w.Write(response)
 			return
-		} else {
-			log.Print(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			response, _ := types.ServerResponse{
-				Status:  http.StatusText(http.StatusInternalServerError),
-				Message: "database_error",
-			}.MarshalJSON()
-			_, _ = w.Write(response)
-			return
 		}
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "database_error",
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+		return
 	}
 	// создаём токены авторизации.
 	authorizationToken := randomToken()
-	err = e.DB.UpsertIntoCurrentLogin(userId, authorizationToken)
+	err = e.DB.UpsertIntoCurrentLogin(userID, authorizationToken)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -267,7 +263,6 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 		Message: "successful_disposable_registration",
 	}.MarshalJSON()
 	_, _ = w.Write(response)
-	return
 }
 
 // LeaderBoard godoc
@@ -318,7 +313,6 @@ func (e *Environment) LeaderBoard(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	response, _ := LeaderBoard.MarshalJSON()
 	_, _ = w.Write(response)
-	return
 }
 
 // UserProfile godoc
@@ -383,7 +377,6 @@ func (e *Environment) UserProfile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	response, _ := userProfile.MarshalJSON()
 	_, _ = w.Write(response)
-	return
 }
 
 // Login godoc
@@ -462,7 +455,6 @@ func (e *Environment) Login(w http.ResponseWriter, r *http.Request) {
 		}.MarshalJSON()
 		_, _ = w.Write(response)
 	}
-	return
 }
 
 // Logout godoc
@@ -619,7 +611,6 @@ func (e *Environment) SetAvatar(w http.ResponseWriter, r *http.Request) {
 		Message: "successful_avatar_uploading",
 	}.MarshalJSON()
 	_, _ = w.Write(response)
-	return
 }
 
 func (e *Environment) ErrorMethodNotAllowed(w http.ResponseWriter, r *http.Request) {
@@ -630,7 +621,6 @@ func (e *Environment) ErrorMethodNotAllowed(w http.ResponseWriter, r *http.Reque
 		Message: "this_method_is_not_supported",
 	}.MarshalJSON()
 	_, _ = w.Write(response)
-	return
 }
 
 func (e *Environment) ErrorRequiredField(w http.ResponseWriter, r *http.Request) {
@@ -641,5 +631,4 @@ func (e *Environment) ErrorRequiredField(w http.ResponseWriter, r *http.Request)
 		Message: "field_'temporary'_required",
 	}.MarshalJSON()
 	_, _ = w.Write(response)
-	return
 }
