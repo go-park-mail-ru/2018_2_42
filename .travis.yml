@@ -11,9 +11,9 @@ branches:
 
 script:
 - echo $DOCKER_PASSWORD | docker login -u "$DOCKER_USERNAME" --password-stdin
-- docker build --tag authorization_server ./authorization_server/
+- docker build --tag olegschwann/authorization_server ./authorization_server/
 - docker push olegschwann/authorization_server
-- docker build --tag game_server ./game_server/
+- docker build --tag olegschwann/game_server ./game_server/
 - docker push olegschwann/game_server
 - ssh-keyscan -H 95.163.212.32 >> ~/.ssh/known_hosts
 - chmod 400 2018_2_42_id_rsa.pem
