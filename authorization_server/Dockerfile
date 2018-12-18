@@ -1,7 +1,16 @@
-# Для сборки
-# sudo docker build . --tag authorization
-# потом для запуска
-# sudo docker run --network="host" --detach --volume "/var/www/media/images":"/var/www/media/images" authorization_server
+# Ручная сборка на случай отладки:
+# sudo docker build . --tag 'authorization_server' && \
+# sudo docker push 'olegschwann/authorization_server';
+
+# Ручной запуск сервиса авторизации:
+# sudo mkdir --parents --mode=a+rwx '/var/www/media/images' && \
+# sudo docker run \
+# --name 'authorization' \
+# --network 'rpsarena-net' \
+# --volume "/var/www/media/images":"/var/www/media/images" \
+# --detach \
+# --rm \
+# 'olegschwann/authorization_server':latest;
 
 FROM golang:1.11
 # GOPATH='/go'
@@ -18,8 +27,7 @@ RUN go get -v \
 # копируем исходники
 COPY '.' "${GOPATH}/src/github.com/go-park-mail-ru/2018_2_42/authorization_server"
 
-# Cкачиваем все зависимости,
-# компилируем сервер,
+# Компилируем сервер,
 # создаём папку под аватарки.
 RUN go build -o '/go/bin/authorization_server' \
     'github.com/go-park-mail-ru/2018_2_42/authorization_server' && \

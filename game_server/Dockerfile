@@ -1,7 +1,14 @@
-# Для сборки
-# sudo docker build . --tag authorization_server
-# потом для запуска
-# sudo docker run --network="host" --detach --volume "/var/www/media/images":"/var/www/media/images" authorization_server
+# Ручная сборка на случай отладки:
+# sudo docker build . --tag 'game_server' && \
+# sudo docker push 'olegschwann/game_server';
+
+# Ручной запуск игры:
+# sudo docker run \
+# --name 'game' \
+# --network 'rpsarena-net' \
+# --detach \
+# --rm \
+# 'olegschwann/game_server':latest;
 
 FROM golang:1.11
 
