@@ -337,7 +337,8 @@ func (e *Environment) UserProfile(w http.ResponseWriter, r *http.Request) {
 	login := ""
 	if loginStrings, ok := getParams["login"]; ok {
 		if len(loginStrings) == 1 {
-			if login = loginStrings[0]; login != "" {
+			login = loginStrings[0]
+			if login != "" {
 				// just working on
 			} else {
 				w.WriteHeader(http.StatusUnprocessableEntity)
@@ -515,15 +516,6 @@ func (e *Environment) Logout(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(response)
 }
 
-// Корень, куда сохраняются аватарки и прочие загружаемые пользователем ресурсы.
-const mediaRoot = "/var/www/media"
-
-func init() {
-	if _, err := os.Stat(mediaRoot + "/images"); os.IsNotExist(err) {
-		err = os.MkdirAll(mediaRoot+"/images", os.ModePerm)
-	}
-}
-
 // Logout godoc
 // @Summary Upload user avatar.
 // @Description Upload avatar from \<form enctype='multipart/form-data' action='/api/v1/avatar'>\<input type="file" name="avatar"></form>.
@@ -593,7 +585,7 @@ func (e *Environment) SetAvatar(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = file.Close() }()
 	// /var/www/media/images/login.jpeg
 	fileName := user.Login + filepath.Ext(handler.Filename)
-	f, err := os.Create(mediaRoot + "/images/" + fileName)
+	f, err := os.Create(*e.Config.ImagesRoot + "/" + fileName)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

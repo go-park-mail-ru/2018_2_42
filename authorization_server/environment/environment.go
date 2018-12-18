@@ -6,4 +6,11 @@ import (
 
 type Environment struct {
 	DB accessor.DB
+	Config Config
+}
+
+type Config struct {
+	PostgresPath *string
+	ListeningPort *string
+	ImagesRoot *string
 }

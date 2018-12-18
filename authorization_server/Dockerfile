@@ -34,4 +34,7 @@ RUN go build -o '/go/bin/authorization_server' \
     mkdir --parents --mode=a+rwx '/var/www/media';
 
 # При запуске контейнера запускаем сервер.
-CMD ["/go/bin/authorization_server", "--postgres-path", "postgres://postgres:@database:5432/postgres?sslmode=disable", "--listening-port", "8080"]
+CMD ["/go/bin/authorization_server", \
+    "--postgres-path", "postgres://postgres:@database:5432/postgres?sslmode=disable", \
+    "--listening-port", "8080", \
+    "--images-root", "/var/www/media/images"]

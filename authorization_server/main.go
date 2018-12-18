@@ -78,16 +78,25 @@ func registerUserHandlers(handlersEnv handlers.Environment) {
 
 func main() {
 	// получаем конфигурацию из аргументов командной строки
-	listeningPort := flag.String("listening-port", "8080", "port on which the server will listen")
-	postgresPath := flag.String("postgres-path",
-		"full postgres address like 'postgres://postgres:@127.0.0.1:5432/postgres?sslmode=disable' in default",
-		"postgres://postgres:@127.0.0.1:5432/postgres?sslmode=disable")
+	env := environment.Environment{}
+	env.Config.ListeningPort = flag.String(
+		"listening-port",
+		"8080",
+		"port on which the server will listen")
+	env.Config.PostgresPath = flag.String(
+		"postgres-path",
+		"postgres://postgres:@127.0.0.1:5432/postgres?sslmode=disable",
+		"full postgres address like 'postgres://postgres:@127.0.0.1:5432/postgres?sslmode=disable'")
+	env.Config.ImagesRoot = flag.String(
+		"images-root",
+		"/var/www/media/images",
+		"the folder in which the downloaded avatars of users will be saved")
 	flag.Parse()
 
 	// подключаемся к базе.
 	var err error
-	handlersEnv := handlers.Environment(environment.Environment{})
-	handlersEnv.DB, err = accessor.ConnectToDatabase(*postgresPath)
+	handlersEnv := handlers.Environment(env)
+	handlersEnv.DB, err = accessor.ConnectToDatabase(*handlersEnv.Config.PostgresPath)
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "accessor.ConnectToDatabase: "))
 	}
@@ -110,8 +119,8 @@ func main() {
 	registerAvatarHandlers(handlersEnv)
 
 	// начинаем слушать порт.
-	fmt.Println("starting server at :" + *listeningPort)
-	log.Println(http.ListenAndServe(":"+*listeningPort, nil))
+	fmt.Println("starting server at :" + *env.Config.ListeningPort)
+	log.Println(http.ListenAndServe(":"+*env.Config.ListeningPort, nil))
 
 	return
 }
