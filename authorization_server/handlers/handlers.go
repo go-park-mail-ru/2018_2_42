@@ -73,7 +73,6 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 	_ = r.Body.Close()
 	registrationInfo := types.NewUserRegistration{}
 	err = registrationInfo.UnmarshalJSON(bodyBytes)
-
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		response, _ := types.ServerResponse{
@@ -83,6 +82,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		_, _ = w.Write(response)
 		return
 	}
+
 	if registrationInfo.Login == "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		response, _ := types.ServerResponse{
@@ -92,6 +92,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		_, _ = w.Write(response)
 		return
 	}
+
 	if len(registrationInfo.Password) < 5 {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		response, _ := types.ServerResponse{
@@ -101,6 +102,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		_, _ = w.Write(response)
 		return
 	}
+
 	userID, err := e.DB.InsertIntoUser(registrationInfo.Login, defaultAvatarURL, false)
 	if err != nil {
 		if strings.Contains(err.Error(),
@@ -113,7 +115,6 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 			_, _ = w.Write(response)
 			return
 		}
-		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
@@ -122,6 +123,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		_, _ = w.Write(response)
 		return
 	}
+
 	err = e.DB.InsertIntoRegularLoginInformation(userID, sha256hash(registrationInfo.Password))
 	if err != nil {
 		log.Print(err)
@@ -133,6 +135,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		_, _ = w.Write(response)
 		return
 	}
+
 	err = e.DB.InsertIntoGameStatistics(userID, 0, 0)
 	if err != nil {
 		log.Print(err)
@@ -144,6 +147,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		_, _ = w.Write(response)
 		return
 	}
+
 	// создаём токены авторизации.
 	authorizationToken := randomToken()
 	err = e.DB.UpsertIntoCurrentLogin(userID, authorizationToken)
@@ -157,12 +161,11 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		_, _ = w.Write(response)
 		return
 	}
-	// Уже нормальный ответ отсылаем.
+	// Отсылаем нормальный ответ.
 	http.SetCookie(w, &http.Cookie{
 		Name:  "SessionId",
 		Value: authorizationToken,
 		Path:  "/",
-		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#Permanent_cookie
 		Expires:  time.Now().AddDate(0, 0, 7),
 		Secure:   true,
 		HttpOnly: true,
@@ -194,7 +197,6 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 	_ = r.Body.Close()
 	registrationInfo := types.NewUserRegistration{}
 	err = registrationInfo.UnmarshalJSON(bodyBytes)
-
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		response, _ := types.ServerResponse{
@@ -204,6 +206,7 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 		_, _ = w.Write(response)
 		return
 	}
+
 	if registrationInfo.Login == "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		response, _ := types.ServerResponse{
@@ -213,6 +216,7 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 		_, _ = w.Write(response)
 		return
 	}
+
 	userID, err := e.DB.InsertIntoUser(registrationInfo.Login, defaultAvatarURL, true)
 	if err != nil {
 		if strings.Contains(err.Error(),
@@ -234,6 +238,7 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 		_, _ = w.Write(response)
 		return
 	}
+
 	// создаём токены авторизации.
 	authorizationToken := randomToken()
 	err = e.DB.UpsertIntoCurrentLogin(userID, authorizationToken)
@@ -247,7 +252,7 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 		_, _ = w.Write(response)
 		return
 	}
-	// Уже нормальный ответ отсылаем.
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "SessionId",
 		Value:    authorizationToken,
@@ -309,7 +314,7 @@ func (e *Environment) LeaderBoard(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(response)
 		return
 	}
-	// Уже нормальный ответ отсылаем.
+
 	w.WriteHeader(http.StatusOK)
 	response, _ := LeaderBoard.MarshalJSON()
 	_, _ = w.Write(response)
@@ -373,7 +378,7 @@ func (e *Environment) UserProfile(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(response)
 		return
 	}
-	// нормальный ответ
+
 	w.WriteHeader(http.StatusOK)
 	response, _ := userProfile.MarshalJSON()
 	_, _ = w.Write(response)
@@ -407,6 +412,7 @@ func (e *Environment) Login(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(response)
 		return
 	}
+
 	exists, userId, err := e.DB.SelectUserIdByLoginPasswordHash(registrationInfo.Login, sha256hash(registrationInfo.Password))
 	if err != nil {
 		log.Print(err)
@@ -480,6 +486,7 @@ func (e *Environment) Logout(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(response)
 		return
 	}
+
 	err = e.DB.DropUsersSession(inCookie.Value)
 	if err != nil {
 		log.Print(err)
@@ -491,6 +498,7 @@ func (e *Environment) Logout(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(response)
 		return
 	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "SessionId",
 		Expires:  time.Unix(0, 0),
@@ -498,6 +506,7 @@ func (e *Environment) Logout(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
+
 	w.WriteHeader(http.StatusOK)
 	response, _ := types.ServerResponse{
 		Status:  http.StatusText(http.StatusOK),
@@ -541,6 +550,7 @@ func (e *Environment) SetAvatar(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(response)
 		return
 	}
+
 	exist, user, err := e.DB.SelectUserBySessionId(cookie.Value)
 	if err != nil {
 		log.Print(err)
@@ -561,11 +571,13 @@ func (e *Environment) SetAvatar(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(response)
 		return
 	}
+
 	err = r.ParseMultipartForm(0)
 	if err != nil {
 		log.Print("handlers SetAvatar ParseMultipartForm: " + err.Error())
 		return
 	}
+
 	file, handler, err := r.FormFile("avatar")
 	if err != nil {
 		fmt.Println(err)
@@ -577,6 +589,7 @@ func (e *Environment) SetAvatar(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(response)
 		return
 	}
+
 	defer func() { _ = file.Close() }()
 	// /var/www/media/images/login.jpeg
 	fileName := user.Login + filepath.Ext(handler.Filename)
@@ -592,6 +605,7 @@ func (e *Environment) SetAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() { _ = f.Close() }()
+
 	//put avatar path to db
 	err = e.DB.UpdateUsersAvatarByLogin(user.Login, "/media/images/"+fileName)
 	if err != nil {
@@ -604,7 +618,9 @@ func (e *Environment) SetAvatar(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(response)
 		return
 	}
+
 	_, _ = io.Copy(f, file)
+
 	w.WriteHeader(http.StatusCreated)
 	response, _ := types.ServerResponse{
 		Status:  http.StatusText(http.StatusCreated),
