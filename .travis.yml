@@ -13,9 +13,9 @@ branches:
   - dev
 
 script:
-- go get github.com/fzipp/gocyclo
-- go bild 'github.com/fzipp/gocyclo' -o "${GOPATH}/bin/gocyclo";
-- find -name *.go -exec "${GOPATH}/bin/gocyclo" -over 25  {} +
+- go get github.com/fzipp/gocyclo &&
+- go build -o "${GOPATH}/bin/gocyclo" 'github.com/fzipp/gocyclo' &&
+- find -name *.go -exec "${GOPATH}/bin/gocyclo" -over 25  {} + &&
 - echo $DOCKER_PASSWORD | docker login -u "$DOCKER_USERNAME" --password-stdin
 - docker build --tag olegschwann/authorization_server ./authorization_server/
 - docker push olegschwann/authorization_server
