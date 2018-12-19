@@ -22,6 +22,7 @@ func (r *Room) GameMaster() {
 		case message = <-r.Messaging.User1From:
 			role = 1
 			log.Printf("message came from the User1: " + string(message))
+		// TODO: case timeout := <- ticker 2 min
 		}
 		event := types.Event{}
 		err := event.UnmarshalJSON(message)
