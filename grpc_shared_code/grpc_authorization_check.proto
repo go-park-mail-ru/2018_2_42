@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package authorizationcheck;
+// сервер проверки авторизации
+service AuthorizationCheck {
+    rpc GetLogin (Cookie) returns (User) {}
+}
+
+// проверяемая кука
+message Cookie {
+    string sessionid = 1;
+}
+
+// пользователь, которому кука принадлежит
+message User {
+    string login = 1;
+    string avatar_address = 2;
+}
