@@ -1,10 +1,14 @@
 package game_logic
 
 import (
-	"github.com/go-park-mail-ru/2018_2_42/game_server/user_connection"
 	"github.com/gorilla/websocket"
 	"log"
+	"time"
+
+	"github.com/go-park-mail-ru/2018_2_42/game_server/user_connection"
 )
+
+const timeForMove = 5 * time.Minute
 
 type Room struct {
 	// соединения с пользователями, могут подменятся во время игры
@@ -54,6 +58,11 @@ type Room struct {
 		User1IsAvailableWrite chan struct{}
 	}
 
+	// интервал ожидания бездействия игрока timeForMove = 5 минут.
+	// при каждом ходе уничтожение таймер перезапускается на timeForMove = 5 минут.
+	// если никто не сделал попытки что-то отправить - комната уничтожается.
+
+	TimeoutTimer *time.Timer
 	// Что бы отрегистрировать комнату, надо отправить RoomId в канал:
 	Completed chan RoomId
 	OwnNumber RoomId
@@ -66,14 +75,15 @@ func NewRoom(player0, player1 *user_connection.UserConnection, completedRooms ch
 		Map: [42]*Сharacter{},
 		Completed: completedRooms,
 		OwnNumber: ownNumber,
+		TimeoutTimer: time.NewTimer(timeForMove),
 	}
-	room.Messaging.User0From = make(chan []byte, 5)
-	room.Messaging.User0To = make(chan []byte, 5)
-	room.Messaging.User1From = make(chan []byte, 5)
-	room.Messaging.User1To = make(chan []byte, 5)
-	room.Recovery.User0IsAvailableRead = make(chan struct{}, 1)
+	room.Messaging.User0From            = make(chan []byte,   5)
+	room.Messaging.User0To              = make(chan []byte,   5)
+	room.Messaging.User1From            = make(chan []byte,   5)
+	room.Messaging.User1To              = make(chan []byte,   5)
+	room.Recovery.User0IsAvailableRead  = make(chan struct{}, 1)
 	room.Recovery.User0IsAvailableWrite = make(chan struct{}, 1)
-	room.Recovery.User1IsAvailableRead = make(chan struct{}, 1)
+	room.Recovery.User1IsAvailableRead  = make(chan struct{}, 1)
 	room.Recovery.User1IsAvailableWrite = make(chan struct{}, 1)
 
 	// Внутри каждая комната обслуживается одним мастерм игры - горутиной.
@@ -108,7 +118,7 @@ func NewRoom(player0, player1 *user_connection.UserConnection, completedRooms ch
 //    ╭─User0From─▶─╮      ╭─◀─User1From─╮
 // User0           GameMaster            User1
 //    ╰─User0To───◀─╯      ╰─▶─User1To───╯
-func (r *Room) StopRoom() {
+func (r *Room) Stop() {
 	// завершит go room.WebSocketReader(0)
 	close(r.Recovery.User0IsAvailableRead)
 
@@ -131,7 +141,7 @@ func (r *Room) StopRoom() {
 
 // удаляет комнату из списка комнат.
 // Удаляет соединения пользователей из списка обрабатываемых соединений.
-func (r *Room) RemoveRoom() {
+func (r *Room) Remove() {
 	r.Completed <- r.OwnNumber
 	return
 }

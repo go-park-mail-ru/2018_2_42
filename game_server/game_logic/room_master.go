@@ -14,16 +14,22 @@ func (r *Room) GameMaster() {
 	log.Printf("start GameMaster for room: %#v", *r)
 	var message []byte
 	var role RoleId
-	for {
+gameLoop: for {
 		select {
+		case <- r.TimeoutTimer.C:
+			r.Stop()
+			r.Remove()
+			log.Printf("room = " + r.OwnNumber.String() + ", time out!")
+			break gameLoop
 		case message = <-r.Messaging.User0From:
 			role = 0
 			log.Printf("message came from the User0: " + string(message))
 		case message = <-r.Messaging.User1From:
 			role = 1
 			log.Printf("message came from the User1: " + string(message))
-		// TODO: case timeout := <- ticker 2 min
 		}
+		r.TimeoutTimer.Reset(timeForMove)
+
 		event := types.Event{}
 		err := event.UnmarshalJSON(message)
 		if err != nil {
@@ -77,10 +83,10 @@ func (r *Room) GameMaster() {
 			}
 			if gameover {
 				// к этому моменту эже все данные должны быть отправлены. только сетевые вопросы и остановка всех 5-и горутин.
-				r.StopRoom()
+				r.Stop()
 				// отрегистирует в Rooms.
-				r.RemoveRoom()
-				break
+				r.Remove()
+				break gameLoop
 			}
 			continue
 		}
@@ -103,7 +109,7 @@ func (r *Room) GameMaster() {
 			}
 			continue
 		}
-		// если ни один из трёх методов не отработал, прислали меверный метод, кидаем ошибку
+		// если ни один из трёх методов не отработал, прислали неверный метод, кидаем ошибку
 		response, _ := types.Event{
 			Method: "error_message",
 			Parameter: easyjson.RawMessage("unknown method '" + event.Method + "', " +
