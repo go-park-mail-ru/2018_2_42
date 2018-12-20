@@ -13,8 +13,8 @@ branches:
   - dev
 
 script:
-- wget --output-document ~/'gometalinter-2.0.12-linux-amd64.tar.gz' 'https://github.com/alecthomas/gometalinter/releases/download/v2.0.12/gometalinter-2.0.12-linux-amd64.tar.gz';
-- tar --verbose --extract --file ~/'gometalinter-2.0.12-linux-amd64.tar.gz';
+- wget --no-verbose --output-document ~/'gometalinter-2.0.12-linux-amd64.tar.gz' 'https://github.com/alecthomas/gometalinter/releases/download/v2.0.12/gometalinter-2.0.12-linux-amd64.tar.gz';
+- tar --verbose --extract --file ~/'gometalinter-2.0.12-linux-amd64.tar.gz' --directory ~/;
 - ~/'gometalinter-2.0.12-linux-amd64/gometalinter' --config '.gometalinter.json' --cyclo-over 24 --exclude 'easyjson.go';
 - docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}";
 - docker build --tag olegschwann/authorization_server ./authorization_server/
