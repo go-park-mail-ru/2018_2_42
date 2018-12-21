@@ -167,7 +167,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		Expires:  time.Now().AddDate(0, 0, 7),
 		Secure:   true,
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		// SameSite: http.SameSiteLaxMode,
 	})
 	w.WriteHeader(http.StatusCreated)
 
@@ -257,7 +257,7 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 		Expires:  time.Now().AddDate(0, 0, 7),
 		Secure:   true,
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		// SameSite: http.SameSiteLaxMode,
 	})
 	w.WriteHeader(http.StatusCreated)
 	response, _ := types.ServerResponse{
@@ -443,7 +443,7 @@ func (e *Environment) Login(w http.ResponseWriter, r *http.Request) {
 			Expires:  time.Now().AddDate(0, 0, 7),
 			Secure:   true,
 			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
+			// SameSite: http.SameSiteLaxMode,
 		})
 		w.WriteHeader(http.StatusAccepted)
 		response, _ := types.ServerResponse{
@@ -502,7 +502,7 @@ func (e *Environment) Logout(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Unix(0, 0),
 		Secure:   true,
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		// SameSite: http.SameSiteLaxMode,
 	})
 
 	w.WriteHeader(http.StatusOK)
