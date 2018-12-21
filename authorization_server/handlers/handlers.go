@@ -10,12 +10,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -582,21 +580,21 @@ func (e *Environment) SetAvatar(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = file.Close() }()
 	// /var/www/media/images/login.jpeg
 	fileName := user.Login + filepath.Ext(handler.Filename)
-	f, err := os.Create(*e.Config.ImagesRoot + "/" + fileName)
+
+	err = e.AWSUploader.Upload(file, fileName)
 	if err != nil {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		response, _ := types.ServerResponse{
 			Status:  http.StatusText(http.StatusInternalServerError),
-			Message: "cannot_create_file",
+			Message: "cannot_upload_file",
 		}.MarshalJSON()
 		_, _ = w.Write(response)
 		return
 	}
-	defer func() { _ = f.Close() }()
 
 	//put avatar path to db
-	err = e.DB.UpdateUsersAvatarByLogin(user.Login, "/media/images/"+fileName)
+	err = e.DB.UpdateUsersAvatarByLogin(user.Login, "https://s3.eu-west-3.amazonaws.com/avatars-rpsarena-ru/"+fileName)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -607,8 +605,6 @@ func (e *Environment) SetAvatar(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(response)
 		return
 	}
-
-	_, _ = io.Copy(f, file)
 
 	w.WriteHeader(http.StatusCreated)
 	response, _ := types.ServerResponse{

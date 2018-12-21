@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-park-mail-ru/2018_2_42/authorization_server/AWS_upload_awatar"
 	"log"
 	"net/http"
 
@@ -111,6 +112,12 @@ func main() {
 			log.Fatal("failed to close Database connection: " + err.Error())
 		}
 	}()
+
+	// подключаемся к хранилищу аватарок:
+	env.AWSUploader, err  = AWS_upload_awatar.NewAWSUploader()
+	if err != nil {
+		log.Fatal("failed to connect to AWS s3: " + err.Error())
+	}
 
 	// регистрируем обработчики запросов с логикой сервера.
 	registerUserHandlers(handlersEnv)
