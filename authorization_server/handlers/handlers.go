@@ -167,7 +167,7 @@ func (e *Environment) RegistrationRegular(w http.ResponseWriter, r *http.Request
 		Expires:  time.Now().AddDate(0, 0, 7),
 		Secure:   true,
 		HttpOnly: true,
-		// SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 	w.WriteHeader(http.StatusCreated)
 
@@ -257,7 +257,7 @@ func (e *Environment) RegistrationTemporary(w http.ResponseWriter, r *http.Reque
 		Expires:  time.Now().AddDate(0, 0, 7),
 		Secure:   true,
 		HttpOnly: true,
-		// SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 	w.WriteHeader(http.StatusCreated)
 	response, _ := types.ServerResponse{
@@ -443,7 +443,7 @@ func (e *Environment) Login(w http.ResponseWriter, r *http.Request) {
 			Expires:  time.Now().AddDate(0, 0, 7),
 			Secure:   true,
 			HttpOnly: true,
-			// SameSite: http.SameSiteLaxMode,
+			SameSite: http.SameSiteLaxMode,
 		})
 		w.WriteHeader(http.StatusAccepted)
 		response, _ := types.ServerResponse{
@@ -502,7 +502,7 @@ func (e *Environment) Logout(w http.ResponseWriter, r *http.Request) {
 		Expires:  time.Unix(0, 0),
 		Secure:   true,
 		HttpOnly: true,
-		// SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	w.WriteHeader(http.StatusOK)
@@ -511,6 +511,54 @@ func (e *Environment) Logout(w http.ResponseWriter, r *http.Request) {
 		Message: "successful_logout",
 	}.MarshalJSON()
 	_, _ = w.Write(response)
+}
+
+// CheckSession godoc
+// @Summary check client session.
+// @Produce application/json
+// @Failure 404 {object} types.ServerResponse
+// @Failure 500 {object} types.ServerResponse
+// @Router /api/v1/session [get]
+func (e *Environment) CheckSession(w http.ResponseWriter, r *http.Request) {
+	inCookie, err := r.Cookie("SessionId")
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusBadRequest)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusBadRequest),
+			Message: "cannot_read_cookie",
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+		return
+	}
+
+	exists, user, err := e.DB.SelectUserBySessionId(inCookie.Value)
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "oops",
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+		return
+	}
+
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusNotFound),
+			Message: "session_not_found",
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+	} else {
+		w.WriteHeader(http.StatusOK)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusOK),
+			Message: user.Login,
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+	}
 }
 
 // Logout godoc

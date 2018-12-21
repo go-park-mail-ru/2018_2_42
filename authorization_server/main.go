@@ -34,6 +34,8 @@ func registerSessionHandlers(handlersEnv handlers.Environment) {
 				handlersEnv.Login(w, r)
 			case http.MethodDelete:
 				handlersEnv.Logout(w, r)
+			case http.MethodGet:
+				handlersEnv.CheckSession(w, r)
 			default:
 				handlersEnv.ErrorMethodNotAllowed(w, r)
 			}
