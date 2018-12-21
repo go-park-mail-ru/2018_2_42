@@ -3,6 +3,9 @@
   sudo docker run \
   --name 'authorization' \
   --network 'rpsarena-net' \
+  --e AWS_REGION=$AWS_REGION \
+  --e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+  --e AWS_SECRET_ACCESS_KEY=$AWS_ACCESS_KEY_ID \
   --volume "/var/www/media/images":"/var/www/media/images" \
   --detach \
   --rm olegschwann/authorization_server:latest &&
