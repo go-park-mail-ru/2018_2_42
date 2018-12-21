@@ -19,6 +19,7 @@ func NewAWSUploader() (u *AWSUploader, err error) {
 	}
 	awsUploader.Session, err = session.NewSession()
 	awsUploader.Uploader = s3manager.NewUploader(awsUploader.Session)
+	u = &awsUploader
 	return
 }
 
