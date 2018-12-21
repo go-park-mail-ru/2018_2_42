@@ -1,0 +1,48 @@
+# Описание ручной инициализации сервисов на случай отладки.
+# создаём сеть:
+sudo docker network create --driver bridge 'rpsarena-net';
+
+# названия и порты сервисов в сети:
+# "frontend", и наружу --publish :80 --publish :433
+# "authorization":8080
+# "game":8080
+# "database":5432
+
+# запускаем в базу данных:
+sudo mkdir --parent '/var/lib/postgresql/data' && \
+sudo docker run \
+--name 'database' \
+--network 'rpsarena-net' \
+--volume '/var/lib/postgresql/data':'/var/lib/postgresql/data' \
+--rm \
+--detach \
+'postgres':'11-alpine';
+
+# запускаем сервис авторизации:
+sudo mkdir --parents --mode=a+rwx '/var/www/media/images' && \
+sudo docker run \
+--name 'authorization' \
+--network 'rpsarena-net' \
+--volume "/var/www/media/images":"/var/www/media/images" \
+--detach \
+--rm \
+'olegschwann/authorization_server':latest;
+
+# запускаем игру.
+sudo docker run \
+--name 'game' \
+--network 'rpsarena-net' \
+--detach \
+--rm \
+'olegschwann/game_server':latest;
+
+# запускаем фронт:
+sudo docker run \
+--name 'frontend' \
+--publish 80:80 \
+--publish 443:443 \
+--network 'rpsarena-net' \
+--volume '/etc/letsencrypt':'/etc/letsencrypt' \
+--detach \
+--rm \
+'olegschwann/rps-arena-frontend':latest;
