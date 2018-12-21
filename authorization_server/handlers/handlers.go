@@ -513,6 +513,54 @@ func (e *Environment) Logout(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(response)
 }
 
+// CheckSession godoc
+// @Summary check client session.
+// @Produce application/json
+// @Failure 404 {object} types.ServerResponse
+// @Failure 500 {object} types.ServerResponse
+// @Router /api/v1/session [get]
+func (e *Environment) CheckSession(w http.ResponseWriter, r *http.Request){
+	inCookie, err := r.Cookie("SessionId")
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusBadRequest)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusBadRequest),
+			Message: "cannot_read_cookie",
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+		return
+	}
+
+	exists, user, err := e.DB.SelectUserBySessionId(inCookie.Value)
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusInternalServerError),
+			Message: "oops",
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+		return
+	}
+
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusNotFound),
+			Message: "session_not_found",
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+	} else {
+		w.WriteHeader(http.StatusOK)
+		response, _ := types.ServerResponse{
+			Status:  http.StatusText(http.StatusOK),
+			Message: user.Login,
+		}.MarshalJSON()
+		_, _ = w.Write(response)
+	}
+}
+
 // Logout godoc
 // @Summary Upload user avatar.
 // @Description Upload avatar from \<form enctype='multipart/form-data' action='/api/v1/avatar'>\<input type="file" name="avatar"></form>.

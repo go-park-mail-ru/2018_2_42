@@ -34,6 +34,8 @@ func registerSessionHandlers(handlersEnv handlers.Environment) {
 				handlersEnv.Login(w, r)
 			case http.MethodDelete:
 				handlersEnv.Logout(w, r)
+			case http.MethodGet:
+				handlersEnv.CheckSession(w, r)
 			default:
 				handlersEnv.ErrorMethodNotAllowed(w, r)
 			}
@@ -86,7 +88,7 @@ func main() {
 	env.Config.PostgresPath = flag.String(
 		"postgres-path",
 		"postgres://postgres:@127.0.0.1:5432/postgres?sslmode=disable",
-		"full postgres address like 'postgres://postgres:@127.0.0.1:5432/postgres?sslmode=disable'")
+		"full postgres address like 'postgres://postgres:1@127.0.0.1:5432/postgres?sslmode=disable'")
 	env.Config.ImagesRoot = flag.String(
 		"images-root",
 		"/var/www/media/images",
