@@ -116,7 +116,7 @@ func main() {
 	}()
 
 	// подключаемся к хранилищу аватарок:
-	env.AWSUploader, err  = AWS_upload_awatar.NewAWSUploader()
+	handlersEnv.AWSUploader, err  = AWS_upload_awatar.NewAWSUploader()
 	if err != nil {
 		log.Fatal("failed to connect to AWS s3: " + err.Error())
 	}

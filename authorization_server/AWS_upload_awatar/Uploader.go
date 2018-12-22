@@ -1,6 +1,7 @@
 package AWS_upload_awatar
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"io"
@@ -26,12 +27,12 @@ func NewAWSUploader() (u *AWSUploader, err error) {
 // same as the filename.
 func (u *AWSUploader) Upload(image io.Reader, filename string) (err error) {
 	_, err = u.Uploader.Upload(&s3manager.UploadInput{
-		Bucket: &u.Bucket,
+		Bucket: aws.String(u.Bucket),
 
 		// Can also use the `filepath` standard library package to modify the
 		// filename as need for an S3 object key. Such as turning absolute path
 		// to a relative path.
-		Key: &filename,
+		Key: aws.String(filename),
 
 		// The file to be uploaded. io.ReadSeeker is preferred as the Uploader
 		// will be able to optimize memory when uploading large content. io.Reader
