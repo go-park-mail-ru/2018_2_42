@@ -22,7 +22,6 @@ RUN go get -v \
     'github.com/pkg/errors' \
     'github.com/spf13/pflag' \
     'github.com/mailru/easyjson' \
-    "github.com/aws/aws-sdk-go/aws" \
 	"github.com/aws/aws-sdk-go/aws/session" \
 	"github.com/aws/aws-sdk-go/service/s3/s3manager" \
     'github.com/lib/pq' ;
